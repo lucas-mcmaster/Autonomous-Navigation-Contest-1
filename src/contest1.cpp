@@ -13,6 +13,8 @@
 #include "tf2/utils.h"
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
+//TURTLE BOT COMMANDS: GAZEBO: ros2 launch turtlebot4_gz_bringup turtlebot4_gz.launch.py model:=lite
+
 using namespace std::chrono_literals;
 
 //Utility functions
@@ -48,6 +50,14 @@ public:
         start_time_ = this->now();
         angular_ = 0.0;
         linear_ = 0.0;
+        pos_x_=0.0;
+        pos_y_=0.0;
+        yaw_= 0.0;
+        minLaserDist_=std::numeric_limits<float>::infinity();
+        nLasers_=0;
+        desiredNLasers_=0;
+        desiredAngle_=5;
+        
 
         RCLCPP_INFO(this->get_logger(), "Contest 1 node initialized. Running for 480 seconds.");
         //Initialize bumper states
@@ -62,6 +72,32 @@ private:
     void laserCallback(const sensor_msgs::msg::LaserScan::SharedPtr scan)
     {
         // implement your code here
+        nLasers_ = (scan->angle_max - scan->angle_min)/scan->angle_increment;
+        laserRange_= scan->ranges;
+        desiredNLasers_= deg2rad(desiredAngle_)/scan->angle_increment;
+        //RCLCPP_INFO(this->get_logger(), "Size of laser scan array: %d, and size of offset %d", nLasers_, desiredNLasers_);
+        float laser_offset = deg2rad(-90.0);
+        uint32_t front_idx = (laser_offset - scan->angle_min) / scan->angle_increment;
+
+        minLaserDist_= std::numeric_limits<float>::infinity();
+
+        //Find maximum laser distance within +/- desiredAngle from front center
+
+        if (deg2rad(desiredAngle_) < scan->angle_max && deg2rad(desiredAngle_)>scan->angle_min)
+        {
+            for (uint32_t laser_idx = front_idx - desiredNLasers_; laser_idx < front_idx + desiredNLasers_; ++laser_idx)
+            {
+                minLaserDist_=std::min(minLaserDist_, laserRange_[laser_idx]);
+            
+            }
+        }
+        else
+        {
+            for(uint32_t laser_idx=0; laser_idx < nLasers_; ++laser_idx)
+            {
+                minLaserDist_ = std::min(minLaserDist_, laserRange_[laser_idx]);
+            }
+        }
     }
 
     void odomCallback(const nav_msgs::msg::Odometry::SharedPtr odom)
@@ -73,7 +109,7 @@ private:
 
         yaw_ = tf2::getYaw(odom->pose.pose.orientation);
 
-        RCLCPP_INFO(this->get_logger(), "Position: (%.2f, %.2f), Orientation: %f rad or %f deg", pos_x_, pos_y_, yaw_, rad2deg(yaw_));
+        //RCLCPP_INFO(this->get_logger(), "Position: (%.2f, %.2f), Orientation: %f rad or %f deg", pos_x_, pos_y_, yaw_, rad2deg(yaw_));
     }
 
     void hazardCallback(const irobot_create_msgs::msg::HazardDetectionVector::SharedPtr hazard_vector)
@@ -117,20 +153,38 @@ private:
         }
 
         // Implement your exploration code here
+        
         bool any_bumper_pressed=false;
         for (const auto& [key, val] : bumpers_) {
             if (val) {
                 any_bumper_pressed = true;
                 break;
             }
+        RCLCPP_INFO(this->get_logger(), "Position: (%.2f, %.2f), Orientation: %f rad or %f deg, Minimum laser distance: %.2f", pos_x_, pos_y_, yaw_, rad2deg(yaw_), minLaserDist_);
+
         }
-        if (pos_x_ <= 0.5 && yaw_ < M_PI / 12 && !any_bumper_pressed) {
+        if (pos_x_ <= 0.5 && yaw_ < M_PI / 12 && !any_bumper_pressed && minLaserDist_>=0.7) {
             angular_= 0.0;
             linear_= 0.2;
         }
-        else if (yaw_ > M_PI / 2 && pos_x_ > 0.5 && !any_bumper_pressed){
+        else if (yaw_ < M_PI / 2 && pos_x_ > 0.5 && !any_bumper_pressed && minLaserDist_>=0.5){
             angular_= M_PI/6;
             linear_= 0.0;
+        }
+        else if (minLaserDist_ < 1.0 && !any_bumper_pressed)
+        {
+            linear_=0.1;
+            if(yaw_ < 17/36*M_PI || pos_x_>0.6)
+            {
+                angular_= M_PI/12;
+            }
+            else if (yaw_ < 19/36*M_PI || pos_x_ <0.4)
+            {
+                angular_=-M_PI /12;
+            }
+            else{
+                angular_=0;
+            }
         }
         else {
             angular_=0.0;
@@ -138,7 +192,7 @@ private:
             rclcpp::shutdown();
             return;
         }
-
+        
         // Set velocity command
         geometry_msgs::msg::TwistStamped vel;
         vel.header.stamp = this->now();
@@ -162,6 +216,11 @@ private:
     double pos_y_;
     double yaw_;
     std::map<std::string, bool>bumpers_;
+    float minLaserDist_;
+    uint32_t nLasers_;
+    int32_t desiredNLasers_;
+    int32_t desiredAngle_;
+    std::vector<float> laserRange_;
     
 };
 
