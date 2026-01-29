@@ -35,6 +35,12 @@ model=:lite world:=maze slam:=true
 ros2 launch turtlebot4_viz view_navigation.launch.py
 ```
 
+5.1. Run Gazebo + SLAM + RViz2 from one command (Contest 1)
+```cpp
+ros2 launch turtlebot4_gz_bringup turtlebot4_gz.launch.py
+model=:lite world:=maze slam:=true viz:=true
+```
+
 6. Save the Gmapping map from RViz2 to a directory
 ```cpp
 ros2 run nav2_map_server map_saver_cli -f your_map_name
