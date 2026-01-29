@@ -24,6 +24,12 @@ ros2 topic echo /cmd_vel_stamped
 ros2 launch slam_toolbox online_sync_launch.py
 ```
 
+4.1. Launch Gazebo & SLAM toolbox (Contest 1 version)
+```cpp
+ros2 launch turtlebot4_gz_bringup turtlebot4_gz.launch.py
+model=:lite world:=maze slam:=true
+```
+
 5. Open RViz2 for Turtlebot SLAM visualization
 ```cpp
 ros2 launch turtlebot4_viz view_navigation.launch.py
