@@ -2,7 +2,8 @@
 
 1. Launch Gazebo (simulator)
 ```cpp
-ros2 launch turtlebot4_gz_bringup turtlebot4_gz.launch.py model:=lite
+ros2 launch turtlebot4_gz_bringup turtlebot4_gz.launch.py
+model=:lite world:=maze
 ```
 
 2. Launch keyboard teleop node
