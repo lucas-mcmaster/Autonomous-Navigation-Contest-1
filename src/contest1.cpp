@@ -53,7 +53,7 @@ public:
         timer_ = this->create_wall_timer(
             100ms, std::bind(&Contest1Node::controlLoop, this));
 
-        // Initialize variables
+        // Initialize general timer and movement variables
         start_time_ = this->now();
         angular_ = 0.0;
         linear_ = 0.0;
@@ -61,7 +61,7 @@ public:
         pos_y_=0.0;
         yaw_= 0.0;
 
-        // LiDAR Variables
+        // Initialize LiDAR variables
         nLasers_ = 0;
 
         min_front_dist_ = std::numeric_limits<float>::infinity();
@@ -71,10 +71,10 @@ public:
         avg_front_dist_ = std::numeric_limits<float>::infinity();
         avg_left_dist_  = std::numeric_limits<float>::infinity();
         avg_right_dist_ = std::numeric_limits<float>::infinity();
-
-
-
+        
+        // Log start message
         RCLCPP_INFO(this->get_logger(), "Contest 1 node initialized. Running for 480 seconds.");
+
         //Initialize bumper states
         bumpers_["bump_front_left"]=false;
         bumpers_["bump_front_center"]=false;
@@ -85,7 +85,6 @@ public:
 
 
 private:
-
     // Helper function to calculate minimum distance within a field-of-view of the LIDAR
     void computeFovStats(
         const sensor_msgs::msg::LaserScan::SharedPtr &scan,
