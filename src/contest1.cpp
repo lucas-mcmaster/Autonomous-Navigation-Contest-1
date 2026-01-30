@@ -53,6 +53,8 @@ public:
         pos_x_=0.0;
         pos_y_=0.0;
         yaw_= 0.0;
+
+        // LiDAR Variables
         minLaserDist_=std::numeric_limits<float>::infinity();
         nLasers_=0;
         desiredNLasers_=0;
