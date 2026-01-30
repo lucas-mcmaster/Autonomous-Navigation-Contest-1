@@ -62,12 +62,16 @@ public:
         yaw_= 0.0;
 
         // LiDAR Variables
-        uint32_t nLasers_ = 0;
-        float desiredAngle_ = 5.0f;
+        nLasers_ = 0;
 
-        float min_front_dist_ = std::numeric_limits<float>::infinity();
-        float min_left_dist_  = std::numeric_limits<float>::infinity();
-        float min_right_dist_ = std::numeric_limits<float>::infinity();
+        min_front_dist_ = std::numeric_limits<float>::infinity();
+        min_left_dist_  = std::numeric_limits<float>::infinity();
+        min_right_dist_ = std::numeric_limits<float>::infinity();
+
+        avg_front_dist_ = std::numeric_limits<float>::infinity();
+        avg_left_dist_  = std::numeric_limits<float>::infinity();
+        avg_right_dist_ = std::numeric_limits<float>::infinity();
+
 
 
         RCLCPP_INFO(this->get_logger(), "Contest 1 node initialized. Running for 480 seconds.");
@@ -82,12 +86,17 @@ public:
 private:
 
     // Helper function to calculate minimum distance within a field-of-view of the LIDAR
-    float computeMinFovDistance(
+    void computeFovStats(
         const sensor_msgs::msg::LaserScan::SharedPtr &scan,
         uint32_t center_idx,
-        uint32_t fov_half_beams)
+        uint32_t fov_half_beams,
+        float &min_dist_out,
+        float &avg_dist_out)
     {
-        float min_dist = std::numeric_limits<float>::infinity();
+        min_dist_out = std::numeric_limits<float>::infinity();
+
+        float sum = 0.0f;
+        int count = 0;
 
         int start = std::max<int>(0, center_idx - fov_half_beams);
         int end   = std::min<int>(
@@ -100,14 +109,24 @@ private:
 
             if (std::isfinite(r))
             {
-                if (r < min_dist)
+                if (r < min_dist_out)
                 {
-                    min_dist = r;
+                    min_dist_out = r;
                 }
+
+                sum += r;
+                count++;
             }
         }
 
-        return min_dist;
+        if (count > 0)
+        {
+            avg_dist_out = sum / count;
+        }
+        else
+        {
+            avg_dist_out = std::numeric_limits<float>::infinity();
+        }
     }
 
 
@@ -126,10 +145,10 @@ private:
         uint32_t left_idx  = (LEFT_ANGLE  - scan->angle_min) / scan->angle_increment;
         uint32_t right_idx = (RIGHT_ANGLE - scan->angle_min) / scan->angle_increment;
 
-        // Calculate minimum distance for each LIDAR FOV (front, left, right)
-        min_front_dist_ = computeMinFovDistance(scan, front_idx, fov_half_beams);
-        min_left_dist_ = computeMinFovDistance(scan, left_idx, fov_half_beams);
-        min_right_dist_ = computeMinFovDistance(scan, right_idx, fov_half_beams);
+        // Calculate minimum and average distances for each LIDAR FOV (front, left, right)
+        computeFovStats(scan, front_idx, fov_half_beams, min_front_dist_, avg_front_dist_);
+        computeFovStats(scan, left_idx, fov_half_beams, min_left_dist_, avg_left_dist_);
+        computeFovStats(scan, right_idx, fov_half_beams, min_right_dist_, avg_right_dist_);
     }
 
 
@@ -187,15 +206,16 @@ private:
         }
 
         // Implement your exploration code here
-        
+
         bool any_bumper_pressed=false;
         for (const auto& [key, val] : bumpers_) {
             if (val) {
                 any_bumper_pressed = true;
                 break;
             }
-        RCLCPP_INFO(this->get_logger(), "Position: (%.2f, %.2f), Orientation: %f rad or %f deg, Minimum laser distance: %.2f", pos_x_, pos_y_, yaw_, rad2deg(yaw_), minLaserDist_);
+        RCLCPP_INFO(this->get_logger(), "Position: (%.2f, %.2f), Orientation: %f rad or %f deg, Minimum laser distance in front, left, and right: (%.2f, %.2f, %.2f)", pos_x_, pos_y_, yaw_, rad2deg(yaw_), min_front_dist_, min_left_dist_, min_right_dist_);
 
+        /*
         }
         if (pos_x_ <= 0.5 && yaw_ < M_PI / 12 && !any_bumper_pressed && minLaserDist_>=0.7) {
             angular_= 0.0;
@@ -220,9 +240,11 @@ private:
                 angular_=0;
             }
         }
+        */
+
         else {
-            angular_=0.0;
-            linear_=0.0;
+            angular_ = 0.0;
+            linear_ = 0.0;
             rclcpp::shutdown();
             return;
         }
@@ -250,12 +272,14 @@ private:
     double pos_y_;
     double yaw_;
     std::map<std::string, bool>bumpers_;
-    float minLaserDist_;
     uint32_t nLasers_;
-    int32_t desiredNLasers_;
-    int32_t desiredAngle_;
-    std::vector<float> laserRange_;
-    
+    float min_front_dist_;
+    float min_left_dist_;
+    float min_right_dist_;
+    float avg_front_dist_;
+    float avg_left_dist_;
+    float avg_right_dist_;
+
 };
 
 int main(int argc, char** argv)
