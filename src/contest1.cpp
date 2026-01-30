@@ -25,11 +25,11 @@ inline double deg2rad(double deg) {return deg * M_PI / 180.0; }
 constexpr float FRONT_ANGLE = -M_PI / 2.0f;
 constexpr float LEFT_ANGLE  =  0.0f;
 constexpr float RIGHT_ANGLE = -M_PI;
-constexpr float FOV_HALF_WIDTH = deg2rad(40.0f);
+constexpr float FOV_HALF_WIDTH = 40.0f * M_PI / 180.0f;
 
 
 class Contest1Node : public rclcpp::Node
-
+{
 public:
     Contest1Node()
         : Node("contest1_node")
@@ -109,7 +109,7 @@ private:
 
             if (std::isfinite(r))
             {
-                if (r < min_dist_out)
+                if (r < min_dist_out && r >= 0.15)
                 {
                     min_dist_out = r;
                 }
@@ -213,7 +213,19 @@ private:
                 any_bumper_pressed = true;
                 break;
             }
+        }
         RCLCPP_INFO(this->get_logger(), "Position: (%.2f, %.2f), Orientation: %f rad or %f deg, Minimum laser distance in front, left, and right: (%.2f, %.2f, %.2f)", pos_x_, pos_y_, yaw_, rad2deg(yaw_), min_front_dist_, min_left_dist_, min_right_dist_);
+        
+        // Move forward if no obstacle in front
+        if (!any_bumper_pressed && min_front_dist_ >= 0.3) {
+            angular_ = 0.0;
+            linear_ = 0.25;
+        }
+
+        else if (!any_bumper_pressed && min_front_dist_ < 0.3) {
+            angular_ = 1;
+            linear_ = 0.0;
+        }
 
         /*
         }
