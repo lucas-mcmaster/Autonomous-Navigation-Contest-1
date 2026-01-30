@@ -29,7 +29,7 @@ constexpr float FOV_HALF_WIDTH = deg2rad(40.0f);
 
 
 class Contest1Node : public rclcpp::Node
-{
+
 public:
     Contest1Node()
         : Node("contest1_node")
@@ -82,6 +82,7 @@ public:
         bumpers_["bump_left"]=false;
         bumpers_["bump_right"]=false;
     }
+
 
 private:
 
