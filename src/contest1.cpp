@@ -13,13 +13,20 @@
 #include "tf2/utils.h"
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
-//TURTLE BOT COMMANDS: GAZEBO: ros2 launch turtlebot4_gz_bringup turtlebot4_gz.launch.py model:=lite
+// TURTLE BOT COMMANDS: GAZEBO: ros2 launch turtlebot4_gz_bringup turtlebot4_gz.launch.py model:=lite
 
 using namespace std::chrono_literals;
 
-//Utility functions
+// Utility functions
 inline double rad2deg(double rad) {return rad*180.0/M_PI;}
 inline double deg2rad(double deg) {return deg * M_PI / 180.0; }
+
+// Compile-time constants
+constexpr float FRONT_ANGLE = -M_PI / 2.0f;
+constexpr float LEFT_ANGLE  =  0.0f;
+constexpr float RIGHT_ANGLE = -M_PI;
+constexpr float FOV_HALF_WIDTH = deg2rad(40.0f);
+
 
 class Contest1Node : public rclcpp::Node
 {
@@ -55,11 +62,13 @@ public:
         yaw_= 0.0;
 
         // LiDAR Variables
-        minLaserDist_=std::numeric_limits<float>::infinity();
-        nLasers_=0;
-        desiredNLasers_=0;
-        desiredAngle_=5;
-        
+        uint32_t nLasers_ = 0;
+        float desiredAngle_ = 5.0f;
+
+        float min_front_dist_ = std::numeric_limits<float>::infinity();
+        float min_left_dist_  = std::numeric_limits<float>::infinity();
+        float min_right_dist_ = std::numeric_limits<float>::infinity();
+
 
         RCLCPP_INFO(this->get_logger(), "Contest 1 node initialized. Running for 480 seconds.");
         //Initialize bumper states
@@ -71,36 +80,58 @@ public:
     }
 
 private:
+
+    // Helper function to calculate minimum distance within a field-of-view of the LIDAR
+    float computeMinFovDistance(
+        const sensor_msgs::msg::LaserScan::SharedPtr &scan,
+        uint32_t center_idx,
+        uint32_t fov_half_beams)
+    {
+        float min_dist = std::numeric_limits<float>::infinity();
+
+        int start = std::max<int>(0, center_idx - fov_half_beams);
+        int end   = std::min<int>(
+            scan->ranges.size() - 1,
+            center_idx + fov_half_beams);
+
+        for (int i = start; i <= end; ++i)
+        {
+            float r = scan->ranges[i];
+
+            if (std::isfinite(r))
+            {
+                if (r < min_dist)
+                {
+                    min_dist = r;
+                }
+            }
+        }
+
+        return min_dist;
+    }
+
+
     void laserCallback(const sensor_msgs::msg::LaserScan::SharedPtr scan)
     {
-        // implement your code here
+        // Number of laser beams in LIDAR frame
         nLasers_ = (scan->angle_max - scan->angle_min)/scan->angle_increment;
-        laserRange_= scan->ranges;
-        desiredNLasers_= deg2rad(desiredAngle_)/scan->angle_increment;
+
+        // Number of laser beams in each FOV (all FOVs equal in angular size)
+        uint32_t fov_half_beams = FOV_HALF_WIDTH / scan->angle_increment;
+
         //RCLCPP_INFO(this->get_logger(), "Size of laser scan array: %d, and size of offset %d", nLasers_, desiredNLasers_);
-        float laser_offset = deg2rad(-90.0);
-        uint32_t front_idx = (laser_offset - scan->angle_min) / scan->angle_increment;
 
-        minLaserDist_= std::numeric_limits<float>::infinity();
+        // Array indices for each FOV
+        uint32_t front_idx = (FRONT_ANGLE - scan->angle_min) / scan->angle_increment;
+        uint32_t left_idx  = (LEFT_ANGLE  - scan->angle_min) / scan->angle_increment;
+        uint32_t right_idx = (RIGHT_ANGLE - scan->angle_min) / scan->angle_increment;
 
-        //Find maximum laser distance within +/- desiredAngle from front center
-
-        if (deg2rad(desiredAngle_) < scan->angle_max && deg2rad(desiredAngle_)>scan->angle_min)
-        {
-            for (uint32_t laser_idx = front_idx - desiredNLasers_; laser_idx < front_idx + desiredNLasers_; ++laser_idx)
-            {
-                minLaserDist_=std::min(minLaserDist_, laserRange_[laser_idx]);
-            
-            }
-        }
-        else
-        {
-            for(uint32_t laser_idx=0; laser_idx < nLasers_; ++laser_idx)
-            {
-                minLaserDist_ = std::min(minLaserDist_, laserRange_[laser_idx]);
-            }
-        }
+        // Calculate minimum distance for each LIDAR FOV (front, left, right)
+        min_front_dist_ = computeMinFovDistance(scan, front_idx, fov_half_beams);
+        min_left_dist_ = computeMinFovDistance(scan, left_idx, fov_half_beams);
+        min_right_dist_ = computeMinFovDistance(scan, right_idx, fov_half_beams);
     }
+
 
     void odomCallback(const nav_msgs::msg::Odometry::SharedPtr odom)
     {
@@ -113,6 +144,7 @@ private:
 
         //RCLCPP_INFO(this->get_logger(), "Position: (%.2f, %.2f), Orientation: %f rad or %f deg", pos_x_, pos_y_, yaw_, rad2deg(yaw_));
     }
+
 
     void hazardCallback(const irobot_create_msgs::msg::HazardDetectionVector::SharedPtr hazard_vector)
     {
