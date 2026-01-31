@@ -53,12 +53,17 @@ public:
         pos_x_=0.0;
         pos_y_=0.0;
         yaw_= 0.0;
-
-        // LiDAR Variables
         minLaserDist_=std::numeric_limits<float>::infinity();
         nLasers_=0;
         desiredNLasers_=0;
-        desiredAngle_=5;
+        desiredAngle_=45;
+        minLaserDist_= std::numeric_limits<float>::infinity();
+        groupedRange_ = {0,0,0,0};
+        maxGroupedRange_= {0,0,0,0};
+        maxAverageLaserDistance=0;
+        directionSelection=0; //once the max average distance is found must calculate the angle
+        laserIdxDirection=0;  //this gives the index then the direction must be calculated using this index
+
         
 
         RCLCPP_INFO(this->get_logger(), "Contest 1 node initialized. Running for 480 seconds.");
@@ -78,20 +83,45 @@ private:
         laserRange_= scan->ranges;
         desiredNLasers_= deg2rad(desiredAngle_)/scan->angle_increment;
         //RCLCPP_INFO(this->get_logger(), "Size of laser scan array: %d, and size of offset %d", nLasers_, desiredNLasers_);
-        float laser_offset = deg2rad(-90.0);
+        float laser_offset = deg2rad(-180.0); //forcing front index to be the head (0 deg) angle of the robot
         uint32_t front_idx = (laser_offset - scan->angle_min) / scan->angle_increment;
 
         minLaserDist_= std::numeric_limits<float>::infinity();
+        groupedRange_ = {0,0,0,0};
+        maxGroupedRange_= {0,0,0,0};
+        maxAverageLaserDistance=0;
+        directionSelection=0;
 
         //Find maximum laser distance within +/- desiredAngle from front center
 
         if (deg2rad(desiredAngle_) < scan->angle_max && deg2rad(desiredAngle_)>scan->angle_min)
         {
-            for (uint32_t laser_idx = front_idx - desiredNLasers_; laser_idx < front_idx + desiredNLasers_; ++laser_idx)
+            for (uint32_t laser_idx = front_idx - desiredNLasers_; laser_idx < front_idx + desiredNLasers_; ++laser_idx) //Code to get min distance and average of groups of 4
             {
                 minLaserDist_=std::min(minLaserDist_, laserRange_[laser_idx]);
             
             }
+            for (uint32_t laser_idx = front_idx - desiredNLasers_; laser_idx < front_idx + desiredNLasers_; laser_idx=laser_idx+4) //Code to get min distance and average of groups of 4
+            {
+                //CODE TO FIND MAX OPEN SPACE FOR ROBOT TO GO TOWARDS
+                std::copy(laserRange_.begin() + laser_idx, laserRange_.begin() + laser_idx+3, groupedRange_.begin());
+                float sum=0;
+                float average=0;
+                for(int i=0; i<4; i++) //to find average
+                {
+                 sum=sum+groupedRange_[i];
+                }
+                average=sum/4;
+                if (average>maxAverageLaserDistance)
+                {
+                    maxAverageLaserDistance=average;
+                    std::copy(groupedRange_.begin(), groupedRange_.begin()+3, maxGroupedRange_.begin()); //kinda pointless but kept it anyways
+                    laserIdxDirection=laser_idx+1; // this is the index of the direction which the bot will go. +1 as needs to be in the middle.
+                }
+            
+            }
+
+            directionSelection=scan->angle_max-((laserIdxDirection+0.5)*scan->angle_increment);
         }
         else
         {
@@ -165,28 +195,22 @@ private:
         RCLCPP_INFO(this->get_logger(), "Position: (%.2f, %.2f), Orientation: %f rad or %f deg, Minimum laser distance: %.2f", pos_x_, pos_y_, yaw_, rad2deg(yaw_), minLaserDist_);
 
         }
-        if (pos_x_ <= 0.5 && yaw_ < M_PI / 12 && !any_bumper_pressed && minLaserDist_>=0.7) {
-            angular_= 0.0;
-            linear_= 0.2;
+        if (linear_==0.0 && !any_bumper_pressed && yaw_!=directionSelection) { //startup or when stopped robot goes towards open space direction
+            angular_=0.5;
         }
-        else if (yaw_ < M_PI / 2 && pos_x_ > 0.5 && !any_bumper_pressed && minLaserDist_>=0.5){
-            angular_= M_PI/6;
-            linear_= 0.0;
+        else if (linear_==0.0 && !any_bumper_pressed && minLaserDist_>=0.3){ //once direction is correct move forward
+            angular_=0.0;
+            linear_=0.1;
         }
-        else if (minLaserDist_ < 1.0 && !any_bumper_pressed)
+        else if (linear_>0.0 && !any_bumper_pressed && minLaserDist_>=0.3)
         {
             linear_=0.1;
-            if(yaw_ < 17/36*M_PI || pos_x_>0.6)
-            {
-                angular_= M_PI/12;
-            }
-            else if (yaw_ < 19/36*M_PI || pos_x_ <0.4)
-            {
-                angular_=-M_PI /12;
-            }
-            else{
-                angular_=0;
-            }
+            angular_=0.0;
+        }
+        else if (linear_>0.0 && !any_bumper_pressed && minLaserDist_<0.3)
+        {
+            linear_=0.0;
+            angular_=0.0;
         }
         else {
             angular_=0.0;
@@ -220,9 +244,15 @@ private:
     std::map<std::string, bool>bumpers_;
     float minLaserDist_;
     uint32_t nLasers_;
+    uint32_t laserIdxDirection;
     int32_t desiredNLasers_;
     int32_t desiredAngle_;
     std::vector<float> laserRange_;
+    std::vector<float> groupedRange_; //groups of laser distances in groups of 4 to take average distance
+    std::vector<float> maxGroupedRange_; // largest group of 4
+    float averageLaserDistance;
+    float maxAverageLaserDistance;
+    float directionSelection; //The direction with the most open space for the robot to go
     
 };
 
