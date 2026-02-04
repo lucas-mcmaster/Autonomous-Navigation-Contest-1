@@ -106,32 +106,41 @@ private:
         float &min_dist_out,
         float &avg_dist_out)
     {
+        // Set starting min dist to high value to be overwritten on first iteration
         min_dist_out = std::numeric_limits<float>::infinity();
 
+        // Counter variables to calculate min and avg distances
         float sum = 0.0f;
         int count = 0;
 
+        // Start and end indices for FOV
         int start = std::max<int>(0, center_idx - fov_half_beams);
         int end   = std::min<int>(
             scan->ranges.size() - 1,
             center_idx + fov_half_beams);
 
+        // Loop through beam indices for FOV
         for (int i = start; i <= end; ++i)
         {
+            // Get current beam distance
             float r = scan->ranges[i];
 
             if (std::isfinite(r))
             {
+                // Compare to current min dist and use 0.15 threshold to avoid fixed structural obstacles on robot
                 if (r < min_dist_out && r >= 0.15)
                 {
+                    // Overwrite min dist if the current beam has a smaller dist
                     min_dist_out = r;
                 }
 
+                // Increment counters
                 sum += r;
                 count++;
             }
         }
 
+        // Calculate avg distance for FOV
         if (count > 0)
         {
             avg_dist_out = sum / count;
@@ -167,7 +176,6 @@ private:
 
     void odomCallback(const nav_msgs::msg::Odometry::SharedPtr odom)
     {
-        // implement your code here
         //Extracting pos
         pos_x_= odom->pose.pose.position.x;
         pos_y_ = odom->pose.pose.position.y;
@@ -180,9 +188,7 @@ private:
 
     void hazardCallback(const irobot_create_msgs::msg::HazardDetectionVector::SharedPtr hazard_vector)
     {
-        // implement your code here
         //reset all bumpers to released state
-
         for (auto& [key, val] : bumpers_) {
             val=false;
         }
@@ -219,8 +225,9 @@ private:
             return;
         }
 
-        // Implement your exploration code here
+        // EXPLORATION CODE BEGINS HERE:
 
+        // Check for any pressed bumpers and set the state accordingly
         bool any_bumper_pressed=false;
         for (const auto& [key, val] : bumpers_) {
             if (val) {
@@ -228,6 +235,8 @@ private:
                 break;
             }
         }
+
+        // Log position, orientation, and min laser distances
         RCLCPP_INFO(this->get_logger(), "Position: (%.2f, %.2f), Orientation: %f rad or %f deg, Minimum laser distance in front, left, and right: (%.2f, %.2f, %.2f)", pos_x_, pos_y_, yaw_, rad2deg(yaw_), min_front_dist_, min_left_dist_, min_right_dist_);
         
         // Priority 1a: finish any in-progress backing-up from bumper hit
@@ -237,6 +246,8 @@ private:
                 std::pow(pos_x_ - start_pos_x_, 2) +
                 std::pow(pos_y_ - start_pos_y_, 2)
             );
+
+            // Obtain target distance to move
             double target_distance = std::abs(target_move_);
 
             if (distance_moved < target_distance) {
@@ -247,8 +258,8 @@ private:
                             distance_moved,
                             target_distance);
             } else {
-                // Reached target distance
-                RCLCPP_INFO(this->get_logger(), "Reached 0.15m backup, stopping move state");
+                // Reached target distance, start moving forward again
+                RCLCPP_INFO(this->get_logger(), "Reached 0.15m backup, resuming forward movement");
                 moving_ = false;
                 linear_ = 0.25;
                 angular_ = 0.0;
@@ -256,7 +267,10 @@ private:
         }
         // Priority 1b: finish any in-progress 15 or 90 deg turn
         else if (turning_) {
+            // Check how much the robot has rotated
             double angle_rotated = normalizeAngle(yaw_ - start_yaw_);
+
+            // Compare amount rotated to target rotation, if less, keep rotating
             if (std::abs(angle_rotated) < std::abs(target_rotation_)) {
                 linear_ = 0.0;
                 angular_ = (target_rotation_ > 0.0) ? 1.0 : -1.0;
@@ -264,21 +278,29 @@ private:
                             rad2deg(std::abs(angle_rotated)),
                             rad2deg(std::abs(target_rotation_)));
             } else {
-                // Reached target rotation
+                // Reached target rotation, start moving forward again
                 turning_ = false;
                 linear_ = 0.25;
                 angular_ = 0.0;
             }
         }
 
-        // Priority 2: if obstacle to the left or right, start a 15 deg turn away
+        // Priority 2: if obstacle to the left or right, start a 15 deg turn away from obstacle
         else if (!any_bumper_pressed && (min_left_dist_ < 0.4 || min_right_dist_ < 0.4)) {
+            // Capture starting yaw (heading)
             start_yaw_ = yaw_;
+
+            // If obstacle to the left within 0.4m, turn right 15deg
             if (min_left_dist_ < 0.4) {
                 target_rotation_ = deg2rad(-15.0); // right turn
-            } else {
+            } 
+            
+            // If obstacle to the right within 0.4m, turn left 15deg
+            else {
                 target_rotation_ = deg2rad(15.0);  // left turn
             }
+
+            // Start turning sequence
             turning_ = true;
             linear_ = 0.0;
             angular_ = (target_rotation_ > 0.0) ? 1.0 : -1.0;
@@ -286,12 +308,20 @@ private:
 
         // Priority 3: if obstacle in front, decide which way to go based on lidar data (skewed to right)
         else if (!any_bumper_pressed && min_front_dist_ < 0.5) {
+            // Capture starting yaw (heading)
             start_yaw_ = yaw_;
+
+            // If avg distance to the right >= the left, turn 90deg to the right
             if (avg_right_dist_ >= avg_left_dist_) {
                 target_rotation_ = deg2rad(-90.0); // right turn
-            } else {
+            } 
+            
+            // If avg distance to the left > the right, turn 90deg to the left
+            else {
                 target_rotation_ = deg2rad(90.0); // left turn
             }
+
+            // Start turning sequence
             turning_ = true;
             linear_ = 0.0;
             angular_ = (target_rotation_ > 0.0) ? 1.0 : -1.0;
