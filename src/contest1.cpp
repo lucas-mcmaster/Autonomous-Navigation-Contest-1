@@ -91,7 +91,7 @@ float LaserToBaseTF(const int index, const float increment, float const angle_mi
     float offset = deg2rad(90.0f);
     //Angle of index with respect to lidar heading in rad
     float θ_laser = angle_min + index*increment;
-    float θ_front_in_laser = offset - θ_laser; 
+    float θ_front_in_laser = offset + θ_laser; 
 
     return θ_front_in_laser;
 }
@@ -180,7 +180,7 @@ private:
         //laser index based on desired angle
         desiredNLasers_ = deg2rad(desiredAngle_) / scan->angle_increment;
         //Threshold based on maximum laser distance
-        float threshold = 0.7*maxRange(scan->ranges);
+        float threshold = 0.7*maxRange(laserRange_);
 
         closeFar_.resize(laserRange_.size());
 
@@ -189,7 +189,7 @@ private:
         int midpoint_ = midSequence(closeFar_, laserRange_.size());
         
         bestAngle_ = NormAngle(LaserToBaseTF(midpoint_, scan->angle_increment, scan->angle_min));
-        bestClearance_ = scan->ranges[midpoint_];
+        bestClearance_ = laserRange_[midpoint_];
         
         if (midpoint_ == -1) {
             RCLCPP_INFO(this->get_logger(), "No open space found");
