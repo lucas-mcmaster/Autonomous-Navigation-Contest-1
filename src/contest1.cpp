@@ -31,7 +31,7 @@ inline double normalizeAngle(double angle)
 constexpr float FRONT_ANGLE = -M_PI / 2.0f;
 constexpr float LEFT_ANGLE  =  0.0f;
 constexpr float RIGHT_ANGLE = -M_PI;
-constexpr float FOV_HALF_WIDTH = 40.0f * M_PI / 180.0f;
+constexpr float FOV_HALF_WIDTH = 20.0f * M_PI / 180.0f;
 
 
 class Contest1Node : public rclcpp::Node
