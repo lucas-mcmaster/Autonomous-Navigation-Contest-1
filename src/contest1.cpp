@@ -421,7 +421,7 @@ private:
     float bestClearance_;
     bool haveScan_;
 
-    // ===== ADDED: movement state (no renaming of existing variables) =====
+    // movement state 
     double start_yaw_;
     double start_pos_x_;
     double start_pos_y_;
@@ -430,7 +430,7 @@ private:
     bool turning_;
     bool moving_;
     bool backing_;
-    // ====================================================================
+    // 
     
 };
 
