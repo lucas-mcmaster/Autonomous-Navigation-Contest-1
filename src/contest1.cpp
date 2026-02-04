@@ -240,6 +240,7 @@ private:
                 angular_ = 0.0;
             }
         }
+
         // Priority 2: if obstacle to the left or right, start a 15 deg turn away
         else if (!any_bumper_pressed && (min_left_dist_ < 0.5 || min_right_dist_ < 0.5)) {
             start_yaw_ = yaw_;
@@ -252,11 +253,20 @@ private:
             linear_ = 0.0;
             angular_ = (target_rotation_ > 0.0) ? 1.0 : -1.0;
         }
-        // Priority 3: if obstacle in front, rotate in place
+
+        // Priority 3: if obstacle in front, decide which way to go based on lidar data (skewed to right)
         else if (!any_bumper_pressed && min_front_dist_ < 0.5) {
-            angular_ = 1.0;
+            start_yaw_ = yaw_;
+            if (avg_right_dist_ >= avg_left_dist_) {
+                target_rotation_ = deg2rad(-90.0); // right turn
+            } else {
+                target_rotation_ = deg2rad(90.0); // left turn
+            }
+            turning_ = true;
             linear_ = 0.0;
+            angular_ = (target_rotation_ > 0.0) ? 1.0 : -1.0;
         }
+
         // Priority 4: move forward if clear
         else if (!any_bumper_pressed && min_front_dist_ >= 0.5) {
             angular_ = 0.0;
