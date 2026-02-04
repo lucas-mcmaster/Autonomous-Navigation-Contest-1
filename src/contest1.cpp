@@ -67,8 +67,12 @@ public:
         pos_y_=0.0;
         yaw_= 0.0;
         start_yaw_ = 0.0;
+        start_pos_x_ = 0.0;
+        start_pos_y_ = 0.0;
         target_rotation_ = 0.0;
+        target_move_ = 0.0;
         turning_ = false;
+        moving_ = false;
 
         // Initialize LiDAR variables
         nLasers_ = 0;
@@ -225,8 +229,32 @@ private:
         }
         RCLCPP_INFO(this->get_logger(), "Position: (%.2f, %.2f), Orientation: %f rad or %f deg, Minimum laser distance in front, left, and right: (%.2f, %.2f, %.2f)", pos_x_, pos_y_, yaw_, rad2deg(yaw_), min_front_dist_, min_left_dist_, min_right_dist_);
         
-        // Priority 1: finish any in-progress 15 deg turn
-        if (turning_) {
+        // Priority 1a: finish any in-progress backing-up from bumper hit
+        if (moving_) {
+            // Check how much distance robot has moved
+            double distance_moved = std::sqrt(
+                std::pow(pos_x_ - start_pos_x_, 2) +
+                std::pow(pos_y_ - start_pos_y_, 2)
+            );
+            double target_distance = std::abs(target_move_);
+
+            if (distance_moved < target_distance) {
+                // Continue moving until robot hits target distance
+                linear_ = (target_move_ > 0.0) ? 0.25 : -0.25;
+                angular_ = 0.0;
+                RCLCPP_INFO(this->get_logger(), "Moving: %.3f / %.3f m",
+                            distance_moved,
+                            target_distance);
+            } else {
+                // Reached target distance
+                RCLCPP_INFO(this->get_logger(), "Reached 0.15m backup, stopping move state");
+                moving_ = false;
+                linear_ = 0.25;
+                angular_ = 0.0;
+            }
+        }
+        // Priority 1b: finish any in-progress 15 or 90 deg turn
+        else if (turning_) {
             double angle_rotated = normalizeAngle(yaw_ - start_yaw_);
             if (std::abs(angle_rotated) < std::abs(target_rotation_)) {
                 linear_ = 0.0;
@@ -235,6 +263,7 @@ private:
                             rad2deg(std::abs(angle_rotated)),
                             rad2deg(std::abs(target_rotation_)));
             } else {
+                // Reached target rotation
                 turning_ = false;
                 linear_ = 0.25;
                 angular_ = 0.0;
@@ -271,6 +300,22 @@ private:
         else if (!any_bumper_pressed && min_front_dist_ >= 0.5) {
             angular_ = 0.0;
             linear_ = 0.25;
+        }
+
+        // Priority 5: if bumper hit, back up 0.15 m
+        else if (any_bumper_pressed) {
+            // Record starting position
+            start_pos_x_ = pos_x_;
+            start_pos_y_ = pos_y_;
+
+            // Set target moving distance
+            target_move_ = -0.15;
+
+            // Start backwards movement
+            moving_ = true;
+            turning_ = false;
+            linear_ = (target_move_ > 0.0) ? 0.25 : -0.25;
+            angular_ = 0.0;
         }
 
         // Fallback for errors: stop moving robot
@@ -312,9 +357,12 @@ private:
     float avg_left_dist_;
     float avg_right_dist_;
     double start_yaw_;
+    double start_pos_x_;
+    double start_pos_y_;
     double target_rotation_;
+    double target_move_;
     bool turning_;
-
+    bool moving_;
 };
 
 int main(int argc, char** argv)
