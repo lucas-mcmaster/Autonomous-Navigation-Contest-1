@@ -23,9 +23,7 @@ ros2 run mie443_contest1 contest1
 
 1.5. Save completed RViz2 map
 ```cpp
-ros2 service call /slam_toolbox/save_map
-slam_toolbox/srv/SaveMap "name:
-data: 'contest1_map'"
+ros2 service call /slam_toolbox/save_map slam_toolbox/srv/SaveMap "{name: 'contest1_map'}"
 ```
 
 ## 2. Always Run these 2 Commands After Making Changes:
