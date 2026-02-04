@@ -20,6 +20,12 @@ using namespace std::chrono_literals;
 // Utility functions
 inline double rad2deg(double rad) {return rad*180.0/M_PI;}
 inline double deg2rad(double deg) {return deg * M_PI / 180.0; }
+inline double normalizeAngle(double angle)
+{
+    while (angle > M_PI) angle -= 2.0 * M_PI;
+    while (angle < -M_PI) angle += 2.0 * M_PI;
+    return angle;
+}
 
 // Compile-time constants
 constexpr float FRONT_ANGLE = -M_PI / 2.0f;
@@ -60,6 +66,9 @@ public:
         pos_x_=0.0;
         pos_y_=0.0;
         yaw_= 0.0;
+        start_yaw_ = 0.0;
+        target_rotation_ = 0.0;
+        turning_ = false;
 
         // Initialize LiDAR variables
         nLasers_ = 0;
@@ -216,44 +225,45 @@ private:
         }
         RCLCPP_INFO(this->get_logger(), "Position: (%.2f, %.2f), Orientation: %f rad or %f deg, Minimum laser distance in front, left, and right: (%.2f, %.2f, %.2f)", pos_x_, pos_y_, yaw_, rad2deg(yaw_), min_front_dist_, min_left_dist_, min_right_dist_);
         
-        // Move forward if no obstacle in front
-        if (!any_bumper_pressed && min_front_dist_ >= 0.5) {
+        // Priority 1: finish any in-progress 15 deg turn
+        if (turning_) {
+            double angle_rotated = normalizeAngle(yaw_ - start_yaw_);
+            if (std::abs(angle_rotated) < std::abs(target_rotation_)) {
+                linear_ = 0.0;
+                angular_ = (target_rotation_ > 0.0) ? 1.0 : -1.0;
+                RCLCPP_INFO(this->get_logger(), "Rotating: %.3f / %.3f degrees",
+                            rad2deg(std::abs(angle_rotated)),
+                            rad2deg(std::abs(target_rotation_)));
+            } else {
+                turning_ = false;
+                linear_ = 0.25;
+                angular_ = 0.0;
+            }
+        }
+        // Priority 2: if obstacle to the left or right, start a 15 deg turn away
+        else if (!any_bumper_pressed && (min_left_dist_ < 0.5 || min_right_dist_ < 0.5)) {
+            start_yaw_ = yaw_;
+            if (min_left_dist_ < 0.5) {
+                target_rotation_ = deg2rad(-15.0); // right turn
+            } else {
+                target_rotation_ = deg2rad(15.0);  // left turn
+            }
+            turning_ = true;
+            linear_ = 0.0;
+            angular_ = (target_rotation_ > 0.0) ? 1.0 : -1.0;
+        }
+        // Priority 3: if obstacle in front, rotate in place
+        else if (!any_bumper_pressed && min_front_dist_ < 0.5) {
+            angular_ = 1.0;
+            linear_ = 0.0;
+        }
+        // Priority 4: move forward if clear
+        else if (!any_bumper_pressed && min_front_dist_ >= 0.5) {
             angular_ = 0.0;
             linear_ = 0.25;
         }
 
-        else if (!any_bumper_pressed && min_front_dist_ < 0.5) {
-            angular_ = 1;
-            linear_ = 0.0;
-        }
-
-        /*
-        }
-        if (pos_x_ <= 0.5 && yaw_ < M_PI / 12 && !any_bumper_pressed && minLaserDist_>=0.7) {
-            angular_= 0.0;
-            linear_= 0.2;
-        }
-        else if (yaw_ < M_PI / 2 && pos_x_ > 0.5 && !any_bumper_pressed && minLaserDist_>=0.5){
-            angular_= M_PI/6;
-            linear_= 0.0;
-        }
-        else if (minLaserDist_ < 1.0 && !any_bumper_pressed)
-        {
-            linear_=0.1;
-            if(yaw_ < 17/36*M_PI || pos_x_>0.6)
-            {
-                angular_= M_PI/12;
-            }
-            else if (yaw_ < 19/36*M_PI || pos_x_ <0.4)
-            {
-                angular_=-M_PI /12;
-            }
-            else{
-                angular_=0;
-            }
-        }
-        */
-
+        // Fallback for errors: stop moving robot
         else {
             angular_ = 0.0;
             linear_ = 0.0;
@@ -291,6 +301,9 @@ private:
     float avg_front_dist_;
     float avg_left_dist_;
     float avg_right_dist_;
+    double start_yaw_;
+    double target_rotation_;
+    bool turning_;
 
 };
 
