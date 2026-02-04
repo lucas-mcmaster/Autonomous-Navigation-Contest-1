@@ -196,6 +196,7 @@ private:
         }
     }
 
+    // Main control loop
     void controlLoop()
     {
         // Calculate elapsed time
@@ -271,9 +272,9 @@ private:
         }
 
         // Priority 2: if obstacle to the left or right, start a 15 deg turn away
-        else if (!any_bumper_pressed && (min_left_dist_ < 0.5 || min_right_dist_ < 0.5)) {
+        else if (!any_bumper_pressed && (min_left_dist_ < 0.4 || min_right_dist_ < 0.4)) {
             start_yaw_ = yaw_;
-            if (min_left_dist_ < 0.5) {
+            if (min_left_dist_ < 0.4) {
                 target_rotation_ = deg2rad(-15.0); // right turn
             } else {
                 target_rotation_ = deg2rad(15.0);  // left turn
