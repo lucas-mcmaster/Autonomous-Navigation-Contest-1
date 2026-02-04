@@ -77,3 +77,10 @@ ros2 run mie443_contest1 contest1
 ros2 topic type <topic name> #Shows the message type inside the specified topic
 ros2 interface show <message type> #Shows the message structure of the specified message type
 ```
+
+14. Save completed RViz2 map
+```cpp
+ros2 service call /slam_toolbox/save_map
+slam_toolbox/srv/SaveMap "name:
+data: 'map_name'"
+```
