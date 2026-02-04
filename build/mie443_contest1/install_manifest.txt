@@ -1,0 +1,17 @@
+/home/nicolas-rebollo/ros2_ws/src/mie443_contest1/install/mie443_contest1/lib/mie443_contest1/contest1
+/home/nicolas-rebollo/ros2_ws/src/mie443_contest1/install/mie443_contest1/include/mie443_contest1/eStop.h
+/home/nicolas-rebollo/ros2_ws/src/mie443_contest1/install/mie443_contest1/share/ament_index/resource_index/package_run_dependencies/mie443_contest1
+/home/nicolas-rebollo/ros2_ws/src/mie443_contest1/install/mie443_contest1/share/ament_index/resource_index/parent_prefix_path/mie443_contest1
+/home/nicolas-rebollo/ros2_ws/src/mie443_contest1/install/mie443_contest1/share/mie443_contest1/environment/ament_prefix_path.sh
+/home/nicolas-rebollo/ros2_ws/src/mie443_contest1/install/mie443_contest1/share/mie443_contest1/environment/ament_prefix_path.dsv
+/home/nicolas-rebollo/ros2_ws/src/mie443_contest1/install/mie443_contest1/share/mie443_contest1/environment/path.sh
+/home/nicolas-rebollo/ros2_ws/src/mie443_contest1/install/mie443_contest1/share/mie443_contest1/environment/path.dsv
+/home/nicolas-rebollo/ros2_ws/src/mie443_contest1/install/mie443_contest1/share/mie443_contest1/local_setup.bash
+/home/nicolas-rebollo/ros2_ws/src/mie443_contest1/install/mie443_contest1/share/mie443_contest1/local_setup.sh
+/home/nicolas-rebollo/ros2_ws/src/mie443_contest1/install/mie443_contest1/share/mie443_contest1/local_setup.zsh
+/home/nicolas-rebollo/ros2_ws/src/mie443_contest1/install/mie443_contest1/share/mie443_contest1/local_setup.dsv
+/home/nicolas-rebollo/ros2_ws/src/mie443_contest1/install/mie443_contest1/share/mie443_contest1/package.dsv
+/home/nicolas-rebollo/ros2_ws/src/mie443_contest1/install/mie443_contest1/share/ament_index/resource_index/packages/mie443_contest1
+/home/nicolas-rebollo/ros2_ws/src/mie443_contest1/install/mie443_contest1/share/mie443_contest1/cmake/mie443_contest1Config.cmake
+/home/nicolas-rebollo/ros2_ws/src/mie443_contest1/install/mie443_contest1/share/mie443_contest1/cmake/mie443_contest1Config-version.cmake
+/home/nicolas-rebollo/ros2_ws/src/mie443_contest1/install/mie443_contest1/share/mie443_contest1/package.xml

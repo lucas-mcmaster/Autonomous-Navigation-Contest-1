@@ -1,0 +1,13 @@
+[0.015s] Invoking command in '/home/nicolas-rebollo/ros2_ws/src/mie443_contest1/build/mie443_contest1': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/jazzy DEBUGINFOD_URLS=https://debuginfod.ubuntu.com /usr/bin/cmake --build /home/nicolas-rebollo/ros2_ws/src/mie443_contest1/build/mie443_contest1 -- -j12 -l12
+[0.139s] [ 50%] [32mBuilding CXX object CMakeFiles/contest1.dir/src/contest1.cpp.o[0m
+[2.798s] [01m[K/home/nicolas-rebollo/ros2_ws/src/mie443_contest1/src/contest1.cpp:[m[K In member function ‘[01m[Kvoid Contest1Node::[01;32m[KcontrolLoop[m[K()[m[K’:
+[2.798s] [01m[K/home/nicolas-rebollo/ros2_ws/src/mie443_contest1/src/contest1.cpp:326:42:[m[K [01;31m[Kerror: [m[Kredeclaration of ‘[01m[Kgeometry_msgs::msg::TwistStamped vel[m[K’
+[2.798s]   326 |         geometry_msgs::msg::TwistStamped [01;31m[Kvel[m[K;
+[2.798s]       |                                          [01;31m[K^~~[m[K
+[2.798s] [01m[K/home/nicolas-rebollo/ros2_ws/src/mie443_contest1/src/contest1.cpp:198:42:[m[K [01;36m[Knote: [m[K‘[01m[Kgeometry_msgs::msg::TwistStamped vel[m[K’ previously declared here
+[2.798s]   198 |         geometry_msgs::msg::TwistStamped [01;36m[Kvel[m[K;
+[2.799s]       |                                          [01;36m[K^~~[m[K
+[6.748s] gmake[2]: *** [CMakeFiles/contest1.dir/build.make:76: CMakeFiles/contest1.dir/src/contest1.cpp.o] Error 1
+[6.749s] gmake[1]: *** [CMakeFiles/Makefile2:137: CMakeFiles/contest1.dir/all] Error 2
+[6.749s] gmake: *** [Makefile:146: all] Error 2
+[6.753s] Invoked command in '/home/nicolas-rebollo/ros2_ws/src/mie443_contest1/build/mie443_contest1' returned '2': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/jazzy DEBUGINFOD_URLS=https://debuginfod.ubuntu.com /usr/bin/cmake --build /home/nicolas-rebollo/ros2_ws/src/mie443_contest1/build/mie443_contest1 -- -j12 -l12

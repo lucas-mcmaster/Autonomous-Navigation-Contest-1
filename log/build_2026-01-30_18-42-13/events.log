@@ -1,0 +1,194 @@
+[0.000000] (-) TimerEvent: {}
+[0.000569] (mie443_contest1) JobQueued: {'identifier': 'mie443_contest1', 'dependencies': OrderedDict()}
+[0.000844] (mie443_contest1) JobStarted: {'identifier': 'mie443_contest1'}
+[0.011441] (mie443_contest1) JobProgress: {'identifier': 'mie443_contest1', 'progress': 'cmake'}
+[0.013356] (mie443_contest1) JobProgress: {'identifier': 'mie443_contest1', 'progress': 'build'}
+[0.013542] (mie443_contest1) Command: {'cmd': ['/usr/bin/cmake', '--build', '/home/nicolas-rebollo/ros2_ws/src/mie443_contest1/build/mie443_contest1', '--', '-j12', '-l12'], 'cwd': '/home/nicolas-rebollo/ros2_ws/src/mie443_contest1/build/mie443_contest1', 'env': OrderedDict({'GJS_DEBUG_TOPICS': 'JS ERROR;JS LOG', 'XDG_ACTIVATION_TOKEN': '6bd6ced6-c9ba-43d0-ba44-bb99a0eb2aa0', 'LESSOPEN': '| /usr/bin/lesspipe %s', 'GZ_SIM_RESOURCE_PATH': '/opt/ros/jazzy/share', 'USER': 'nicolas-rebollo', 'GZ_CONFIG_PATH': '/opt/ros/jazzy/opt/gz_sim_vendor/share/gz:/opt/ros/jazzy/opt/sdformat_vendor/share/gz:/opt/ros/jazzy/opt/gz_gui_vendor/share/gz:/opt/ros/jazzy/opt/gz_transport_vendor/share/gz:/opt/ros/jazzy/opt/gz_rendering_vendor/share/gz:/opt/ros/jazzy/opt/gz_plugin_vendor/share/gz:/opt/ros/jazzy/opt/gz_fuel_tools_vendor/share/gz:/opt/ros/jazzy/opt/gz_msgs_vendor/share/gz:/opt/ros/jazzy/opt/gz_common_vendor/share/gz', 'XDG_SESSION_TYPE': 'wayland', 'CLUTTER_DISABLE_MIPMAPPED_TEXT': '1', 'SHLVL': '1', 'LD_LIBRARY_PATH': '/opt/ros/jazzy/opt/gz_sim_vendor/lib:/opt/ros/jazzy/opt/gz_sensors_vendor/lib:/opt/ros/jazzy/opt/gz_physics_vendor/lib:/opt/ros/jazzy/opt/sdformat_vendor/lib:/opt/ros/jazzy/opt/rviz_ogre_vendor/lib:/opt/ros/jazzy/lib/x86_64-linux-gnu:/opt/ros/jazzy/opt/gz_gui_vendor/lib:/opt/ros/jazzy/opt/gz_transport_vendor/lib:/opt/ros/jazzy/opt/gz_rendering_vendor/lib:/opt/ros/jazzy/opt/gz_plugin_vendor/lib:/opt/ros/jazzy/opt/gz_fuel_tools_vendor/lib:/opt/ros/jazzy/opt/gz_msgs_vendor/lib:/opt/ros/jazzy/opt/gz_common_vendor/lib:/opt/ros/jazzy/opt/gz_math_vendor/lib:/opt/ros/jazzy/opt/gz_utils_vendor/lib:/opt/ros/jazzy/opt/gz_tools_vendor/lib:/opt/ros/jazzy/opt/gz_ogre_next_vendor/lib:/opt/ros/jazzy/opt/gz_dartsim_vendor/lib:/opt/ros/jazzy/opt/gz_cmake_vendor/lib:/opt/ros/jazzy/lib', 'HOME': '/home/nicolas-rebollo', 'CYCLONEDDS_URI': '/etc/turtlebot4/cyclonedds_pc.xml', 'OLDPWD': '/home/nicolas-rebollo/ros2_ws/src', 'DESKTOP_SESSION': 'ubuntu', 'GIO_LAUNCHED_DESKTOP_FILE': '/usr/share/applications/terminator.desktop', 'ROS_PYTHON_VERSION': '3', 'GNOME_SHELL_SESSION_MODE': 'ubuntu', 'GTK_MODULES': 'gail:atk-bridge', 'MANAGERPID': '2086', 'SYSTEMD_EXEC_PID': '2362', 'GSM_SKIP_SSH_AGENT_WORKAROUND': 'true', 'DBUS_SESSION_BUS_ADDRESS': 'unix:path=/run/user/1000/bus', 'COLORTERM': 'truecolor', 'TERMINATOR_DBUS_NAME': 'net.tenshu.Terminator25ef4b219e3b005583550f2b0f9f990c3', 'GIO_LAUNCHED_DESKTOP_FILE_PID': '3139', 'DEBUGINFOD_URLS': 'https://debuginfod.ubuntu.com', 'IM_CONFIG_PHASE': '1', 'WAYLAND_DISPLAY': 'wayland-0', 'COLCON_PREFIX_PATH': '/home/nicolas-rebollo/ros2_ws/src/mie443_contest1/install:/home/nicolas-rebollo/ros2_ws/install', 'ROS_DISTRO': 'jazzy', 'LOGNAME': 'nicolas-rebollo', 'JOURNAL_STREAM': '9:20698', '_': '/usr/bin/colcon', 'ROS_VERSION': '2', 'MEMORY_PRESSURE_WATCH': '/sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/session.slice/org.gnome.Shell@wayland.service/memory.pressure', 'XDG_SESSION_CLASS': 'user', 'USERNAME': 'nicolas-rebollo', 'TERM': 'xterm-256color', 'GNOME_DESKTOP_SESSION_ID': 'this-is-deprecated', 'PATH': '/opt/ros/jazzy/opt/gz_msgs_vendor/bin:/opt/ros/jazzy/opt/gz_tools_vendor/bin:/opt/ros/jazzy/opt/gz_ogre_next_vendor/bin:/opt/ros/jazzy/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/snap/bin', 'SESSION_MANAGER': 'local/nicolas-rebollo:@/tmp/.ICE-unix/2323,unix/nicolas-rebollo:/tmp/.ICE-unix/2323', 'INVOCATION_ID': '3eb793d9ca204bb881e832ffaf913ce7', 'XDG_MENU_PREFIX': 'gnome-', 'GNOME_SETUP_DISPLAY': ':1', 'XDG_RUNTIME_DIR': '/run/user/1000', 'DISPLAY': ':0', 'TERMINATOR_DBUS_PATH': '/net/tenshu/Terminator2', 'LANG': 'en_US.UTF-8', 'XDG_CURRENT_DESKTOP': 'ubuntu:GNOME', 'RMW_IMPLEMENTATION': 'rmw_cyclonedds_cpp', 'XMODIFIERS': '@im=ibus', 'XDG_SESSION_DESKTOP': 'ubuntu', 'XAUTHORITY': '/run/user/1000/.mutter-Xwaylandauth.2TCMJ3', 'LS_COLORS': 'rs=0:di=01;34:ln=01;36:mh=00:pi=40;33:so=01;35:do=01;35:bd=40;33;01:cd=40;33;01:or=40;31;01:mi=00:su=37;41:sg=30;43:ca=00:tw=30;42:ow=34;42:st=37;44:ex=01;32:*.tar=01;31:*.tgz=01;31:*.arc=01;31:*.arj=01;31:*.taz=01;31:*.lha=01;31:*.lz4=01;31:*.lzh=01;31:*.lzma=01;31:*.tlz=01;31:*.txz=01;31:*.tzo=01;31:*.t7z=01;31:*.zip=01;31:*.z=01;31:*.dz=01;31:*.gz=01;31:*.lrz=01;31:*.lz=01;31:*.lzo=01;31:*.xz=01;31:*.zst=01;31:*.tzst=01;31:*.bz2=01;31:*.bz=01;31:*.tbz=01;31:*.tbz2=01;31:*.tz=01;31:*.deb=01;31:*.rpm=01;31:*.jar=01;31:*.war=01;31:*.ear=01;31:*.sar=01;31:*.rar=01;31:*.alz=01;31:*.ace=01;31:*.zoo=01;31:*.cpio=01;31:*.7z=01;31:*.rz=01;31:*.cab=01;31:*.wim=01;31:*.swm=01;31:*.dwm=01;31:*.esd=01;31:*.avif=01;35:*.jpg=01;35:*.jpeg=01;35:*.mjpg=01;35:*.mjpeg=01;35:*.gif=01;35:*.bmp=01;35:*.pbm=01;35:*.pgm=01;35:*.ppm=01;35:*.tga=01;35:*.xbm=01;35:*.xpm=01;35:*.tif=01;35:*.tiff=01;35:*.png=01;35:*.svg=01;35:*.svgz=01;35:*.mng=01;35:*.pcx=01;35:*.mov=01;35:*.mpg=01;35:*.mpeg=01;35:*.m2v=01;35:*.mkv=01;35:*.webm=01;35:*.webp=01;35:*.ogm=01;35:*.mp4=01;35:*.m4v=01;35:*.mp4v=01;35:*.vob=01;35:*.qt=01;35:*.nuv=01;35:*.wmv=01;35:*.asf=01;35:*.rm=01;35:*.rmvb=01;35:*.flc=01;35:*.avi=01;35:*.fli=01;35:*.flv=01;35:*.gl=01;35:*.dl=01;35:*.xcf=01;35:*.xwd=01;35:*.yuv=01;35:*.cgm=01;35:*.emf=01;35:*.ogv=01;35:*.ogx=01;35:*.aac=00;36:*.au=00;36:*.flac=00;36:*.m4a=00;36:*.mid=00;36:*.midi=00;36:*.mka=00;36:*.mp3=00;36:*.mpc=00;36:*.ogg=00;36:*.ra=00;36:*.wav=00;36:*.oga=00;36:*.opus=00;36:*.spx=00;36:*.xspf=00;36:*~=00;90:*#=00;90:*.bak=00;90:*.crdownload=00;90:*.dpkg-dist=00;90:*.dpkg-new=00;90:*.dpkg-old=00;90:*.dpkg-tmp=00;90:*.old=00;90:*.orig=00;90:*.part=00;90:*.rej=00;90:*.rpmnew=00;90:*.rpmorig=00;90:*.rpmsave=00;90:*.swp=00;90:*.tmp=00;90:*.ucf-dist=00;90:*.ucf-new=00;90:*.ucf-old=00;90:', 'SSH_AUTH_SOCK': '/run/user/1000/keyring/ssh', 'ROS_DOMAIN_ID': '12', 'AMENT_PREFIX_PATH': '/home/nicolas-rebollo/ros2_ws/src/mie443_contest1/install/mie443_contest1:/home/nicolas-rebollo/ros2_ws/install/mie443_contest1:/opt/ros/jazzy', 'SHELL': '/bin/bash', 'TERMINATOR_UUID': 'urn:uuid:39e3f57d-4a03-484b-9860-a1cbb991c9c2', 'QT_ACCESSIBILITY': '1', 'GDMSESSION': 'ubuntu', 'LESSCLOSE': '/usr/bin/lesspipe %s %s', 'GJS_DEBUG_OUTPUT': 'stderr', 'ROS_AUTOMATIC_DISCOVERY_RANGE': 'SUBNET', 'QT_IM_MODULE': 'ibus', 'PWD': '/home/nicolas-rebollo/ros2_ws/src/mie443_contest1/build/mie443_contest1', 'XDG_CONFIG_DIRS': '/etc/xdg/xdg-ubuntu:/etc/xdg', 'XDG_DATA_DIRS': '/usr/share/ubuntu:/usr/share/gnome:/usr/local/share/:/usr/share/:/var/lib/snapd/desktop', 'PYTHONPATH': '/opt/ros/jazzy/lib/python3.12/site-packages', 'COLCON': '1', 'MEMORY_PRESSURE_WRITE': 'c29tZSAyMDAwMDAgMjAwMDAwMAA=', 'VTE_VERSION': '7600', 'CMAKE_PREFIX_PATH': '/home/nicolas-rebollo/ros2_ws/src/mie443_contest1/install/mie443_contest1:/home/nicolas-rebollo/ros2_ws/install/mie443_contest1:/opt/ros/jazzy/opt/gz_sim_vendor:/opt/ros/jazzy/opt/gz_sensors_vendor:/opt/ros/jazzy/opt/gz_physics_vendor:/opt/ros/jazzy/opt/sdformat_vendor:/opt/ros/jazzy/opt/gz_gui_vendor:/opt/ros/jazzy/opt/gz_transport_vendor:/opt/ros/jazzy/opt/gz_rendering_vendor:/opt/ros/jazzy/opt/gz_plugin_vendor:/opt/ros/jazzy/opt/gz_fuel_tools_vendor:/opt/ros/jazzy/opt/gz_msgs_vendor:/opt/ros/jazzy/opt/gz_common_vendor:/opt/ros/jazzy/opt/gz_math_vendor:/opt/ros/jazzy/opt/gz_utils_vendor:/opt/ros/jazzy/opt/gz_tools_vendor:/opt/ros/jazzy/opt/gz_ogre_next_vendor:/opt/ros/jazzy/opt/gz_dartsim_vendor:/opt/ros/jazzy/opt/gz_cmake_vendor:/opt/ros/jazzy'}), 'shell': False}
+[0.099853] (-) TimerEvent: {}
+[0.131411] (mie443_contest1) StdoutLine: {'line': b'[ 50%] \x1b[32mBuilding CXX object CMakeFiles/contest1.dir/src/contest1.cpp.o\x1b[0m\n'}
+[0.200100] (-) TimerEvent: {}
+[0.300467] (-) TimerEvent: {}
+[0.400976] (-) TimerEvent: {}
+[0.501416] (-) TimerEvent: {}
+[0.601793] (-) TimerEvent: {}
+[0.702316] (-) TimerEvent: {}
+[0.802785] (-) TimerEvent: {}
+[0.903135] (-) TimerEvent: {}
+[1.003614] (-) TimerEvent: {}
+[1.103975] (-) TimerEvent: {}
+[1.204448] (-) TimerEvent: {}
+[1.304911] (-) TimerEvent: {}
+[1.405374] (-) TimerEvent: {}
+[1.505848] (-) TimerEvent: {}
+[1.606311] (-) TimerEvent: {}
+[1.706788] (-) TimerEvent: {}
+[1.807401] (-) TimerEvent: {}
+[1.907857] (-) TimerEvent: {}
+[2.008313] (-) TimerEvent: {}
+[2.108789] (-) TimerEvent: {}
+[2.209295] (-) TimerEvent: {}
+[2.309802] (-) TimerEvent: {}
+[2.410189] (-) TimerEvent: {}
+[2.510608] (-) TimerEvent: {}
+[2.610984] (-) TimerEvent: {}
+[2.711361] (-) TimerEvent: {}
+[2.811741] (-) TimerEvent: {}
+[2.912129] (-) TimerEvent: {}
+[3.012787] (-) TimerEvent: {}
+[3.113384] (-) TimerEvent: {}
+[3.213819] (-) TimerEvent: {}
+[3.314283] (-) TimerEvent: {}
+[3.414769] (-) TimerEvent: {}
+[3.515152] (-) TimerEvent: {}
+[3.615551] (-) TimerEvent: {}
+[3.715992] (-) TimerEvent: {}
+[3.816483] (-) TimerEvent: {}
+[3.916951] (-) TimerEvent: {}
+[4.017332] (-) TimerEvent: {}
+[4.117778] (-) TimerEvent: {}
+[4.218291] (-) TimerEvent: {}
+[4.318798] (-) TimerEvent: {}
+[4.419190] (-) TimerEvent: {}
+[4.519635] (-) TimerEvent: {}
+[4.620014] (-) TimerEvent: {}
+[4.720403] (-) TimerEvent: {}
+[4.820781] (-) TimerEvent: {}
+[4.921294] (-) TimerEvent: {}
+[5.021879] (-) TimerEvent: {}
+[5.122316] (-) TimerEvent: {}
+[5.222761] (-) TimerEvent: {}
+[5.323172] (-) TimerEvent: {}
+[5.423589] (-) TimerEvent: {}
+[5.523997] (-) TimerEvent: {}
+[5.624326] (-) TimerEvent: {}
+[5.724702] (-) TimerEvent: {}
+[5.825075] (-) TimerEvent: {}
+[5.925538] (-) TimerEvent: {}
+[6.025947] (-) TimerEvent: {}
+[6.126405] (-) TimerEvent: {}
+[6.226797] (-) TimerEvent: {}
+[6.327274] (-) TimerEvent: {}
+[6.427862] (-) TimerEvent: {}
+[6.528295] (-) TimerEvent: {}
+[6.628694] (-) TimerEvent: {}
+[6.729113] (-) TimerEvent: {}
+[6.829576] (-) TimerEvent: {}
+[6.930016] (-) TimerEvent: {}
+[7.030426] (-) TimerEvent: {}
+[7.130843] (-) TimerEvent: {}
+[7.231308] (-) TimerEvent: {}
+[7.331771] (-) TimerEvent: {}
+[7.432236] (-) TimerEvent: {}
+[7.532704] (-) TimerEvent: {}
+[7.633140] (-) TimerEvent: {}
+[7.733571] (-) TimerEvent: {}
+[7.833967] (-) TimerEvent: {}
+[7.934375] (-) TimerEvent: {}
+[8.034776] (-) TimerEvent: {}
+[8.135180] (-) TimerEvent: {}
+[8.235584] (-) TimerEvent: {}
+[8.335985] (-) TimerEvent: {}
+[8.436388] (-) TimerEvent: {}
+[8.536780] (-) TimerEvent: {}
+[8.637174] (-) TimerEvent: {}
+[8.737587] (-) TimerEvent: {}
+[8.837986] (-) TimerEvent: {}
+[8.938383] (-) TimerEvent: {}
+[9.038779] (-) TimerEvent: {}
+[9.139109] (-) TimerEvent: {}
+[9.239539] (-) TimerEvent: {}
+[9.339956] (-) TimerEvent: {}
+[9.440381] (-) TimerEvent: {}
+[9.540905] (-) TimerEvent: {}
+[9.641419] (-) TimerEvent: {}
+[9.741906] (-) TimerEvent: {}
+[9.842297] (-) TimerEvent: {}
+[9.942803] (-) TimerEvent: {}
+[10.043300] (-) TimerEvent: {}
+[10.143782] (-) TimerEvent: {}
+[10.244283] (-) TimerEvent: {}
+[10.344770] (-) TimerEvent: {}
+[10.445151] (-) TimerEvent: {}
+[10.545638] (-) TimerEvent: {}
+[10.645998] (-) TimerEvent: {}
+[10.746506] (-) TimerEvent: {}
+[10.846982] (-) TimerEvent: {}
+[10.947424] (-) TimerEvent: {}
+[11.047869] (-) TimerEvent: {}
+[11.148309] (-) TimerEvent: {}
+[11.248747] (-) TimerEvent: {}
+[11.349186] (-) TimerEvent: {}
+[11.449759] (-) TimerEvent: {}
+[11.550153] (-) TimerEvent: {}
+[11.650565] (-) TimerEvent: {}
+[11.750954] (-) TimerEvent: {}
+[11.851342] (-) TimerEvent: {}
+[11.951732] (-) TimerEvent: {}
+[12.052050] (-) TimerEvent: {}
+[12.152431] (-) TimerEvent: {}
+[12.252784] (-) TimerEvent: {}
+[12.353134] (-) TimerEvent: {}
+[12.453780] (-) TimerEvent: {}
+[12.554238] (-) TimerEvent: {}
+[12.654821] (-) TimerEvent: {}
+[12.755274] (-) TimerEvent: {}
+[12.855669] (-) TimerEvent: {}
+[12.955985] (-) TimerEvent: {}
+[13.056343] (-) TimerEvent: {}
+[13.156701] (-) TimerEvent: {}
+[13.257054] (-) TimerEvent: {}
+[13.357701] (-) TimerEvent: {}
+[13.458140] (-) TimerEvent: {}
+[13.558483] (-) TimerEvent: {}
+[13.658915] (-) TimerEvent: {}
+[13.759402] (-) TimerEvent: {}
+[13.859845] (-) TimerEvent: {}
+[13.960321] (-) TimerEvent: {}
+[14.060806] (-) TimerEvent: {}
+[14.161372] (-) TimerEvent: {}
+[14.261807] (-) TimerEvent: {}
+[14.362316] (-) TimerEvent: {}
+[14.462804] (-) TimerEvent: {}
+[14.563233] (-) TimerEvent: {}
+[14.663724] (-) TimerEvent: {}
+[14.764263] (-) TimerEvent: {}
+[14.864789] (-) TimerEvent: {}
+[14.965301] (-) TimerEvent: {}
+[15.065815] (-) TimerEvent: {}
+[15.121417] (mie443_contest1) StdoutLine: {'line': b'[100%] \x1b[32m\x1b[1mLinking CXX executable contest1\x1b[0m\n'}
+[15.166062] (-) TimerEvent: {}
+[15.266538] (-) TimerEvent: {}
+[15.367007] (-) TimerEvent: {}
+[15.467396] (-) TimerEvent: {}
+[15.567930] (-) TimerEvent: {}
+[15.668450] (-) TimerEvent: {}
+[15.768946] (-) TimerEvent: {}
+[15.869419] (-) TimerEvent: {}
+[15.909803] (mie443_contest1) StdoutLine: {'line': b'[100%] Built target contest1\n'}
+[15.927234] (mie443_contest1) CommandEnded: {'returncode': 0}
+[15.928396] (mie443_contest1) JobProgress: {'identifier': 'mie443_contest1', 'progress': 'install'}
+[15.941650] (mie443_contest1) Command: {'cmd': ['/usr/bin/cmake', '--install', '/home/nicolas-rebollo/ros2_ws/src/mie443_contest1/build/mie443_contest1'], 'cwd': '/home/nicolas-rebollo/ros2_ws/src/mie443_contest1/build/mie443_contest1', 'env': OrderedDict({'GJS_DEBUG_TOPICS': 'JS ERROR;JS LOG', 'XDG_ACTIVATION_TOKEN': '6bd6ced6-c9ba-43d0-ba44-bb99a0eb2aa0', 'LESSOPEN': '| /usr/bin/lesspipe %s', 'GZ_SIM_RESOURCE_PATH': '/opt/ros/jazzy/share', 'USER': 'nicolas-rebollo', 'GZ_CONFIG_PATH': '/opt/ros/jazzy/opt/gz_sim_vendor/share/gz:/opt/ros/jazzy/opt/sdformat_vendor/share/gz:/opt/ros/jazzy/opt/gz_gui_vendor/share/gz:/opt/ros/jazzy/opt/gz_transport_vendor/share/gz:/opt/ros/jazzy/opt/gz_rendering_vendor/share/gz:/opt/ros/jazzy/opt/gz_plugin_vendor/share/gz:/opt/ros/jazzy/opt/gz_fuel_tools_vendor/share/gz:/opt/ros/jazzy/opt/gz_msgs_vendor/share/gz:/opt/ros/jazzy/opt/gz_common_vendor/share/gz', 'XDG_SESSION_TYPE': 'wayland', 'CLUTTER_DISABLE_MIPMAPPED_TEXT': '1', 'SHLVL': '1', 'LD_LIBRARY_PATH': '/opt/ros/jazzy/opt/gz_sim_vendor/lib:/opt/ros/jazzy/opt/gz_sensors_vendor/lib:/opt/ros/jazzy/opt/gz_physics_vendor/lib:/opt/ros/jazzy/opt/sdformat_vendor/lib:/opt/ros/jazzy/opt/rviz_ogre_vendor/lib:/opt/ros/jazzy/lib/x86_64-linux-gnu:/opt/ros/jazzy/opt/gz_gui_vendor/lib:/opt/ros/jazzy/opt/gz_transport_vendor/lib:/opt/ros/jazzy/opt/gz_rendering_vendor/lib:/opt/ros/jazzy/opt/gz_plugin_vendor/lib:/opt/ros/jazzy/opt/gz_fuel_tools_vendor/lib:/opt/ros/jazzy/opt/gz_msgs_vendor/lib:/opt/ros/jazzy/opt/gz_common_vendor/lib:/opt/ros/jazzy/opt/gz_math_vendor/lib:/opt/ros/jazzy/opt/gz_utils_vendor/lib:/opt/ros/jazzy/opt/gz_tools_vendor/lib:/opt/ros/jazzy/opt/gz_ogre_next_vendor/lib:/opt/ros/jazzy/opt/gz_dartsim_vendor/lib:/opt/ros/jazzy/opt/gz_cmake_vendor/lib:/opt/ros/jazzy/lib', 'HOME': '/home/nicolas-rebollo', 'CYCLONEDDS_URI': '/etc/turtlebot4/cyclonedds_pc.xml', 'OLDPWD': '/home/nicolas-rebollo/ros2_ws/src', 'DESKTOP_SESSION': 'ubuntu', 'GIO_LAUNCHED_DESKTOP_FILE': '/usr/share/applications/terminator.desktop', 'ROS_PYTHON_VERSION': '3', 'GNOME_SHELL_SESSION_MODE': 'ubuntu', 'GTK_MODULES': 'gail:atk-bridge', 'MANAGERPID': '2086', 'SYSTEMD_EXEC_PID': '2362', 'GSM_SKIP_SSH_AGENT_WORKAROUND': 'true', 'DBUS_SESSION_BUS_ADDRESS': 'unix:path=/run/user/1000/bus', 'COLORTERM': 'truecolor', 'TERMINATOR_DBUS_NAME': 'net.tenshu.Terminator25ef4b219e3b005583550f2b0f9f990c3', 'GIO_LAUNCHED_DESKTOP_FILE_PID': '3139', 'DEBUGINFOD_URLS': 'https://debuginfod.ubuntu.com', 'IM_CONFIG_PHASE': '1', 'WAYLAND_DISPLAY': 'wayland-0', 'COLCON_PREFIX_PATH': '/home/nicolas-rebollo/ros2_ws/src/mie443_contest1/install:/home/nicolas-rebollo/ros2_ws/install', 'ROS_DISTRO': 'jazzy', 'LOGNAME': 'nicolas-rebollo', 'JOURNAL_STREAM': '9:20698', '_': '/usr/bin/colcon', 'ROS_VERSION': '2', 'MEMORY_PRESSURE_WATCH': '/sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/session.slice/org.gnome.Shell@wayland.service/memory.pressure', 'XDG_SESSION_CLASS': 'user', 'USERNAME': 'nicolas-rebollo', 'TERM': 'xterm-256color', 'GNOME_DESKTOP_SESSION_ID': 'this-is-deprecated', 'PATH': '/opt/ros/jazzy/opt/gz_msgs_vendor/bin:/opt/ros/jazzy/opt/gz_tools_vendor/bin:/opt/ros/jazzy/opt/gz_ogre_next_vendor/bin:/opt/ros/jazzy/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/snap/bin', 'SESSION_MANAGER': 'local/nicolas-rebollo:@/tmp/.ICE-unix/2323,unix/nicolas-rebollo:/tmp/.ICE-unix/2323', 'INVOCATION_ID': '3eb793d9ca204bb881e832ffaf913ce7', 'XDG_MENU_PREFIX': 'gnome-', 'GNOME_SETUP_DISPLAY': ':1', 'XDG_RUNTIME_DIR': '/run/user/1000', 'DISPLAY': ':0', 'TERMINATOR_DBUS_PATH': '/net/tenshu/Terminator2', 'LANG': 'en_US.UTF-8', 'XDG_CURRENT_DESKTOP': 'ubuntu:GNOME', 'RMW_IMPLEMENTATION': 'rmw_cyclonedds_cpp', 'XMODIFIERS': '@im=ibus', 'XDG_SESSION_DESKTOP': 'ubuntu', 'XAUTHORITY': '/run/user/1000/.mutter-Xwaylandauth.2TCMJ3', 'LS_COLORS': 'rs=0:di=01;34:ln=01;36:mh=00:pi=40;33:so=01;35:do=01;35:bd=40;33;01:cd=40;33;01:or=40;31;01:mi=00:su=37;41:sg=30;43:ca=00:tw=30;42:ow=34;42:st=37;44:ex=01;32:*.tar=01;31:*.tgz=01;31:*.arc=01;31:*.arj=01;31:*.taz=01;31:*.lha=01;31:*.lz4=01;31:*.lzh=01;31:*.lzma=01;31:*.tlz=01;31:*.txz=01;31:*.tzo=01;31:*.t7z=01;31:*.zip=01;31:*.z=01;31:*.dz=01;31:*.gz=01;31:*.lrz=01;31:*.lz=01;31:*.lzo=01;31:*.xz=01;31:*.zst=01;31:*.tzst=01;31:*.bz2=01;31:*.bz=01;31:*.tbz=01;31:*.tbz2=01;31:*.tz=01;31:*.deb=01;31:*.rpm=01;31:*.jar=01;31:*.war=01;31:*.ear=01;31:*.sar=01;31:*.rar=01;31:*.alz=01;31:*.ace=01;31:*.zoo=01;31:*.cpio=01;31:*.7z=01;31:*.rz=01;31:*.cab=01;31:*.wim=01;31:*.swm=01;31:*.dwm=01;31:*.esd=01;31:*.avif=01;35:*.jpg=01;35:*.jpeg=01;35:*.mjpg=01;35:*.mjpeg=01;35:*.gif=01;35:*.bmp=01;35:*.pbm=01;35:*.pgm=01;35:*.ppm=01;35:*.tga=01;35:*.xbm=01;35:*.xpm=01;35:*.tif=01;35:*.tiff=01;35:*.png=01;35:*.svg=01;35:*.svgz=01;35:*.mng=01;35:*.pcx=01;35:*.mov=01;35:*.mpg=01;35:*.mpeg=01;35:*.m2v=01;35:*.mkv=01;35:*.webm=01;35:*.webp=01;35:*.ogm=01;35:*.mp4=01;35:*.m4v=01;35:*.mp4v=01;35:*.vob=01;35:*.qt=01;35:*.nuv=01;35:*.wmv=01;35:*.asf=01;35:*.rm=01;35:*.rmvb=01;35:*.flc=01;35:*.avi=01;35:*.fli=01;35:*.flv=01;35:*.gl=01;35:*.dl=01;35:*.xcf=01;35:*.xwd=01;35:*.yuv=01;35:*.cgm=01;35:*.emf=01;35:*.ogv=01;35:*.ogx=01;35:*.aac=00;36:*.au=00;36:*.flac=00;36:*.m4a=00;36:*.mid=00;36:*.midi=00;36:*.mka=00;36:*.mp3=00;36:*.mpc=00;36:*.ogg=00;36:*.ra=00;36:*.wav=00;36:*.oga=00;36:*.opus=00;36:*.spx=00;36:*.xspf=00;36:*~=00;90:*#=00;90:*.bak=00;90:*.crdownload=00;90:*.dpkg-dist=00;90:*.dpkg-new=00;90:*.dpkg-old=00;90:*.dpkg-tmp=00;90:*.old=00;90:*.orig=00;90:*.part=00;90:*.rej=00;90:*.rpmnew=00;90:*.rpmorig=00;90:*.rpmsave=00;90:*.swp=00;90:*.tmp=00;90:*.ucf-dist=00;90:*.ucf-new=00;90:*.ucf-old=00;90:', 'SSH_AUTH_SOCK': '/run/user/1000/keyring/ssh', 'ROS_DOMAIN_ID': '12', 'AMENT_PREFIX_PATH': '/home/nicolas-rebollo/ros2_ws/src/mie443_contest1/install/mie443_contest1:/home/nicolas-rebollo/ros2_ws/install/mie443_contest1:/opt/ros/jazzy', 'SHELL': '/bin/bash', 'TERMINATOR_UUID': 'urn:uuid:39e3f57d-4a03-484b-9860-a1cbb991c9c2', 'QT_ACCESSIBILITY': '1', 'GDMSESSION': 'ubuntu', 'LESSCLOSE': '/usr/bin/lesspipe %s %s', 'GJS_DEBUG_OUTPUT': 'stderr', 'ROS_AUTOMATIC_DISCOVERY_RANGE': 'SUBNET', 'QT_IM_MODULE': 'ibus', 'PWD': '/home/nicolas-rebollo/ros2_ws/src/mie443_contest1/build/mie443_contest1', 'XDG_CONFIG_DIRS': '/etc/xdg/xdg-ubuntu:/etc/xdg', 'XDG_DATA_DIRS': '/usr/share/ubuntu:/usr/share/gnome:/usr/local/share/:/usr/share/:/var/lib/snapd/desktop', 'PYTHONPATH': '/opt/ros/jazzy/lib/python3.12/site-packages', 'COLCON': '1', 'MEMORY_PRESSURE_WRITE': 'c29tZSAyMDAwMDAgMjAwMDAwMAA=', 'VTE_VERSION': '7600', 'CMAKE_PREFIX_PATH': '/home/nicolas-rebollo/ros2_ws/src/mie443_contest1/install/mie443_contest1:/home/nicolas-rebollo/ros2_ws/install/mie443_contest1:/opt/ros/jazzy/opt/gz_sim_vendor:/opt/ros/jazzy/opt/gz_sensors_vendor:/opt/ros/jazzy/opt/gz_physics_vendor:/opt/ros/jazzy/opt/sdformat_vendor:/opt/ros/jazzy/opt/gz_gui_vendor:/opt/ros/jazzy/opt/gz_transport_vendor:/opt/ros/jazzy/opt/gz_rendering_vendor:/opt/ros/jazzy/opt/gz_plugin_vendor:/opt/ros/jazzy/opt/gz_fuel_tools_vendor:/opt/ros/jazzy/opt/gz_msgs_vendor:/opt/ros/jazzy/opt/gz_common_vendor:/opt/ros/jazzy/opt/gz_math_vendor:/opt/ros/jazzy/opt/gz_utils_vendor:/opt/ros/jazzy/opt/gz_tools_vendor:/opt/ros/jazzy/opt/gz_ogre_next_vendor:/opt/ros/jazzy/opt/gz_dartsim_vendor:/opt/ros/jazzy/opt/gz_cmake_vendor:/opt/ros/jazzy'}), 'shell': False}
+[15.955134] (mie443_contest1) StdoutLine: {'line': b'-- Install configuration: ""\n'}
+[15.955459] (mie443_contest1) StdoutLine: {'line': b'-- Installing: /home/nicolas-rebollo/ros2_ws/src/mie443_contest1/install/mie443_contest1/lib/mie443_contest1/contest1\n'}
+[15.967833] (mie443_contest1) StdoutLine: {'line': b'-- Set non-toolchain portion of runtime path of "/home/nicolas-rebollo/ros2_ws/src/mie443_contest1/install/mie443_contest1/lib/mie443_contest1/contest1" to ""\n'}
+[15.968960] (mie443_contest1) StdoutLine: {'line': b'-- Up-to-date: /home/nicolas-rebollo/ros2_ws/src/mie443_contest1/install/mie443_contest1/include/mie443_contest1\n'}
+[15.969269] (mie443_contest1) StdoutLine: {'line': b'-- Up-to-date: /home/nicolas-rebollo/ros2_ws/src/mie443_contest1/install/mie443_contest1/include/mie443_contest1/eStop.h\n'}
+[15.969475] (-) TimerEvent: {}
+[15.969667] (mie443_contest1) StdoutLine: {'line': b'-- Up-to-date: /home/nicolas-rebollo/ros2_ws/src/mie443_contest1/install/mie443_contest1/share/ament_index/resource_index/package_run_dependencies/mie443_contest1\n'}
+[15.969864] (mie443_contest1) StdoutLine: {'line': b'-- Up-to-date: /home/nicolas-rebollo/ros2_ws/src/mie443_contest1/install/mie443_contest1/share/ament_index/resource_index/parent_prefix_path/mie443_contest1\n'}
+[15.970042] (mie443_contest1) StdoutLine: {'line': b'-- Up-to-date: /home/nicolas-rebollo/ros2_ws/src/mie443_contest1/install/mie443_contest1/share/mie443_contest1/environment/ament_prefix_path.sh\n'}
+[15.970226] (mie443_contest1) StdoutLine: {'line': b'-- Up-to-date: /home/nicolas-rebollo/ros2_ws/src/mie443_contest1/install/mie443_contest1/share/mie443_contest1/environment/ament_prefix_path.dsv\n'}
+[15.970410] (mie443_contest1) StdoutLine: {'line': b'-- Up-to-date: /home/nicolas-rebollo/ros2_ws/src/mie443_contest1/install/mie443_contest1/share/mie443_contest1/environment/path.sh\n'}
+[15.970579] (mie443_contest1) StdoutLine: {'line': b'-- Up-to-date: /home/nicolas-rebollo/ros2_ws/src/mie443_contest1/install/mie443_contest1/share/mie443_contest1/environment/path.dsv\n'}
+[15.970761] (mie443_contest1) StdoutLine: {'line': b'-- Up-to-date: /home/nicolas-rebollo/ros2_ws/src/mie443_contest1/install/mie443_contest1/share/mie443_contest1/local_setup.bash\n'}
+[15.970941] (mie443_contest1) StdoutLine: {'line': b'-- Up-to-date: /home/nicolas-rebollo/ros2_ws/src/mie443_contest1/install/mie443_contest1/share/mie443_contest1/local_setup.sh\n'}
+[15.971119] (mie443_contest1) StdoutLine: {'line': b'-- Up-to-date: /home/nicolas-rebollo/ros2_ws/src/mie443_contest1/install/mie443_contest1/share/mie443_contest1/local_setup.zsh\n'}
+[15.971492] (mie443_contest1) StdoutLine: {'line': b'-- Up-to-date: /home/nicolas-rebollo/ros2_ws/src/mie443_contest1/install/mie443_contest1/share/mie443_contest1/local_setup.dsv\n'}
+[15.972035] (mie443_contest1) StdoutLine: {'line': b'-- Installing: /home/nicolas-rebollo/ros2_ws/src/mie443_contest1/install/mie443_contest1/share/mie443_contest1/package.dsv\n'}
+[15.972655] (mie443_contest1) StdoutLine: {'line': b'-- Up-to-date: /home/nicolas-rebollo/ros2_ws/src/mie443_contest1/install/mie443_contest1/share/ament_index/resource_index/packages/mie443_contest1\n'}
+[15.973603] (mie443_contest1) StdoutLine: {'line': b'-- Up-to-date: /home/nicolas-rebollo/ros2_ws/src/mie443_contest1/install/mie443_contest1/share/mie443_contest1/cmake/mie443_contest1Config.cmake\n'}
+[15.974103] (mie443_contest1) StdoutLine: {'line': b'-- Up-to-date: /home/nicolas-rebollo/ros2_ws/src/mie443_contest1/install/mie443_contest1/share/mie443_contest1/cmake/mie443_contest1Config-version.cmake\n'}
+[15.974511] (mie443_contest1) StdoutLine: {'line': b'-- Up-to-date: /home/nicolas-rebollo/ros2_ws/src/mie443_contest1/install/mie443_contest1/share/mie443_contest1/package.xml\n'}
+[15.974779] (mie443_contest1) CommandEnded: {'returncode': 0}
+[16.001098] (mie443_contest1) JobEnded: {'identifier': 'mie443_contest1', 'rc': 0}
+[16.002549] (-) EventReactorShutdown: {}

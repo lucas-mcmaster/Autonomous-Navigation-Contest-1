@@ -217,12 +217,12 @@ private:
         RCLCPP_INFO(this->get_logger(), "Position: (%.2f, %.2f), Orientation: %f rad or %f deg, Minimum laser distance in front, left, and right: (%.2f, %.2f, %.2f)", pos_x_, pos_y_, yaw_, rad2deg(yaw_), min_front_dist_, min_left_dist_, min_right_dist_);
         
         // Move forward if no obstacle in front
-        if (!any_bumper_pressed && min_front_dist_ >= 0.3) {
+        if (!any_bumper_pressed && min_front_dist_ >= 0.5) {
             angular_ = 0.0;
             linear_ = 0.25;
         }
 
-        else if (!any_bumper_pressed && min_front_dist_ < 0.3) {
+        else if (!any_bumper_pressed && min_front_dist_ < 0.5) {
             angular_ = 1;
             linear_ = 0.0;
         }

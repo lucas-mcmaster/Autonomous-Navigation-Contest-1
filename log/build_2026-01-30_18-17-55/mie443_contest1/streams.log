@@ -1,0 +1,79 @@
+[0.014s] Invoking command in '/home/nicolas-rebollo/ros2_ws/src/mie443_contest1/build/mie443_contest1': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/jazzy DEBUGINFOD_URLS=https://debuginfod.ubuntu.com /usr/bin/cmake /home/nicolas-rebollo/ros2_ws/src/mie443_contest1 -DCMAKE_INSTALL_PREFIX=/home/nicolas-rebollo/ros2_ws/src/mie443_contest1/install/mie443_contest1
+[0.197s] -- The C compiler identification is GNU 13.3.0
+[0.294s] -- The CXX compiler identification is GNU 13.3.0
+[0.329s] -- Detecting C compiler ABI info
+[0.516s] -- Detecting C compiler ABI info - done
+[0.533s] -- Check for working C compiler: /usr/bin/cc - skipped
+[0.545s] -- Detecting C compile features
+[0.546s] -- Detecting C compile features - done
+[0.565s] -- Detecting CXX compiler ABI info
+[0.749s] -- Detecting CXX compiler ABI info - done
+[0.765s] -- Check for working CXX compiler: /usr/bin/c++ - skipped
+[0.765s] -- Detecting CXX compile features
+[0.766s] -- Detecting CXX compile features - done
+[0.774s] -- Found ament_cmake: 2.5.4 (/opt/ros/jazzy/share/ament_cmake/cmake)
+[1.023s] -- Found Python3: /usr/bin/python3 (found version "3.12.3") found components: Interpreter 
+[1.236s] -- Found rclcpp: 28.1.13 (/opt/ros/jazzy/share/rclcpp/cmake)
+[1.313s] -- Found rosidl_generator_c: 4.6.6 (/opt/ros/jazzy/share/rosidl_generator_c/cmake)
+[1.338s] -- Found rosidl_generator_cpp: 4.6.6 (/opt/ros/jazzy/share/rosidl_generator_cpp/cmake)
+[1.366s] -- Using all available rosidl_typesupport_c: rosidl_typesupport_fastrtps_c;rosidl_typesupport_introspection_c
+[1.402s] -- Using all available rosidl_typesupport_cpp: rosidl_typesupport_fastrtps_cpp;rosidl_typesupport_introspection_cpp
+[1.562s] -- Found rmw_implementation_cmake: 7.3.2 (/opt/ros/jazzy/share/rmw_implementation_cmake/cmake)
+[1.572s] -- Found rmw_cyclonedds_cpp: 2.2.3 (/opt/ros/jazzy/share/rmw_cyclonedds_cpp/cmake)
+[1.644s] -- Using RMW implementation 'rmw_cyclonedds_cpp' as default
+[1.774s] -- Found std_msgs: 5.3.6 (/opt/ros/jazzy/share/std_msgs/cmake)
+[1.799s] -- Found geometry_msgs: 5.3.6 (/opt/ros/jazzy/share/geometry_msgs/cmake)
+[1.825s] -- Found sensor_msgs: 5.3.6 (/opt/ros/jazzy/share/sensor_msgs/cmake)
+[1.862s] -- Found nav_msgs: 5.3.6 (/opt/ros/jazzy/share/nav_msgs/cmake)
+[1.903s] -- Found irobot_create_msgs: 3.0.0 (/opt/ros/jazzy/share/irobot_create_msgs/cmake)
+[2.024s] -- Found tf2: 0.36.16 (/opt/ros/jazzy/share/tf2/cmake)
+[2.035s] -- Found tf2_geometry_msgs: 0.36.16 (/opt/ros/jazzy/share/tf2_geometry_msgs/cmake)
+[2.064s] -- Found eigen3_cmake_module: 0.3.0 (/opt/ros/jazzy/share/eigen3_cmake_module/cmake)
+[2.066s] -- Found Eigen3: TRUE (found version "3.4.0") 
+[2.066s] -- Ensuring Eigen3 include directory is part of orocos-kdl CMake target
+[2.240s] -- Found cv_bridge: 4.1.0 (/opt/ros/jazzy/share/cv_bridge/cmake)
+[2.266s] -- Found image_transport: 5.1.7 (/opt/ros/jazzy/share/image_transport/cmake)
+[2.294s] -- Found TinyXML2 via Config file: /usr/lib/x86_64-linux-gnu/cmake/tinyxml2
+[2.302s] -- Found OpenCV: /usr (found suitable version "4.6.0", minimum required is "4") 
+[2.311s] -- Found ament_lint_auto: 0.17.3 (/opt/ros/jazzy/share/ament_lint_auto/cmake)
+[2.477s] -- Added test 'copyright' to check source files copyright and LICENSE
+[2.487s] -- Added test 'cppcheck' to perform static code analysis on C / C++ code
+[2.488s] -- Configured cppcheck include dirs: /home/nicolas-rebollo/ros2_ws/src/mie443_contest1/include
+[2.488s] -- Configured cppcheck exclude dirs and/or files: 
+[2.498s] -- Added test 'cpplint' to check C / C++ code against the Google style
+[2.498s] -- Configured cpplint exclude dirs and/or files: 
+[2.504s] -- Added test 'lint_cmake' to check CMake code style
+[2.517s] -- Added test 'uncrustify' to check C / C++ code style
+[2.517s] -- Configured uncrustify additional arguments: 
+[2.519s] -- Added test 'xmllint' to check XML markup files
+[2.522s] -- Configuring done (2.5s)
+[2.546s] -- Generating done (0.0s)
+[2.552s] -- Build files have been written to: /home/nicolas-rebollo/ros2_ws/src/mie443_contest1/build/mie443_contest1
+[2.565s] Invoked command in '/home/nicolas-rebollo/ros2_ws/src/mie443_contest1/build/mie443_contest1' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/jazzy DEBUGINFOD_URLS=https://debuginfod.ubuntu.com /usr/bin/cmake /home/nicolas-rebollo/ros2_ws/src/mie443_contest1 -DCMAKE_INSTALL_PREFIX=/home/nicolas-rebollo/ros2_ws/src/mie443_contest1/install/mie443_contest1
+[2.566s] Invoking command in '/home/nicolas-rebollo/ros2_ws/src/mie443_contest1/build/mie443_contest1': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/jazzy DEBUGINFOD_URLS=https://debuginfod.ubuntu.com /usr/bin/cmake --build /home/nicolas-rebollo/ros2_ws/src/mie443_contest1/build/mie443_contest1 -- -j12 -l12
+[2.649s] [ 50%] [32mBuilding CXX object CMakeFiles/contest1.dir/src/contest1.cpp.o[0m
+[17.481s] [100%] [32m[1mLinking CXX executable contest1[0m
+[18.260s] [100%] Built target contest1
+[18.275s] Invoked command in '/home/nicolas-rebollo/ros2_ws/src/mie443_contest1/build/mie443_contest1' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/jazzy DEBUGINFOD_URLS=https://debuginfod.ubuntu.com /usr/bin/cmake --build /home/nicolas-rebollo/ros2_ws/src/mie443_contest1/build/mie443_contest1 -- -j12 -l12
+[18.291s] Invoking command in '/home/nicolas-rebollo/ros2_ws/src/mie443_contest1/build/mie443_contest1': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/jazzy DEBUGINFOD_URLS=https://debuginfod.ubuntu.com /usr/bin/cmake --install /home/nicolas-rebollo/ros2_ws/src/mie443_contest1/build/mie443_contest1
+[18.305s] -- Install configuration: ""
+[18.305s] -- Installing: /home/nicolas-rebollo/ros2_ws/src/mie443_contest1/install/mie443_contest1/lib/mie443_contest1/contest1
+[18.315s] -- Set non-toolchain portion of runtime path of "/home/nicolas-rebollo/ros2_ws/src/mie443_contest1/install/mie443_contest1/lib/mie443_contest1/contest1" to ""
+[18.315s] -- Installing: /home/nicolas-rebollo/ros2_ws/src/mie443_contest1/install/mie443_contest1/include/mie443_contest1
+[18.316s] -- Installing: /home/nicolas-rebollo/ros2_ws/src/mie443_contest1/install/mie443_contest1/include/mie443_contest1/eStop.h
+[18.316s] -- Installing: /home/nicolas-rebollo/ros2_ws/src/mie443_contest1/install/mie443_contest1/share/ament_index/resource_index/package_run_dependencies/mie443_contest1
+[18.316s] -- Installing: /home/nicolas-rebollo/ros2_ws/src/mie443_contest1/install/mie443_contest1/share/ament_index/resource_index/parent_prefix_path/mie443_contest1
+[18.316s] -- Installing: /home/nicolas-rebollo/ros2_ws/src/mie443_contest1/install/mie443_contest1/share/mie443_contest1/environment/ament_prefix_path.sh
+[18.316s] -- Installing: /home/nicolas-rebollo/ros2_ws/src/mie443_contest1/install/mie443_contest1/share/mie443_contest1/environment/ament_prefix_path.dsv
+[18.316s] -- Installing: /home/nicolas-rebollo/ros2_ws/src/mie443_contest1/install/mie443_contest1/share/mie443_contest1/environment/path.sh
+[18.316s] -- Installing: /home/nicolas-rebollo/ros2_ws/src/mie443_contest1/install/mie443_contest1/share/mie443_contest1/environment/path.dsv
+[18.317s] -- Installing: /home/nicolas-rebollo/ros2_ws/src/mie443_contest1/install/mie443_contest1/share/mie443_contest1/local_setup.bash
+[18.317s] -- Installing: /home/nicolas-rebollo/ros2_ws/src/mie443_contest1/install/mie443_contest1/share/mie443_contest1/local_setup.sh
+[18.317s] -- Installing: /home/nicolas-rebollo/ros2_ws/src/mie443_contest1/install/mie443_contest1/share/mie443_contest1/local_setup.zsh
+[18.317s] -- Installing: /home/nicolas-rebollo/ros2_ws/src/mie443_contest1/install/mie443_contest1/share/mie443_contest1/local_setup.dsv
+[18.317s] -- Installing: /home/nicolas-rebollo/ros2_ws/src/mie443_contest1/install/mie443_contest1/share/mie443_contest1/package.dsv
+[18.317s] -- Installing: /home/nicolas-rebollo/ros2_ws/src/mie443_contest1/install/mie443_contest1/share/ament_index/resource_index/packages/mie443_contest1
+[18.317s] -- Installing: /home/nicolas-rebollo/ros2_ws/src/mie443_contest1/install/mie443_contest1/share/mie443_contest1/cmake/mie443_contest1Config.cmake
+[18.318s] -- Installing: /home/nicolas-rebollo/ros2_ws/src/mie443_contest1/install/mie443_contest1/share/mie443_contest1/cmake/mie443_contest1Config-version.cmake
+[18.318s] -- Installing: /home/nicolas-rebollo/ros2_ws/src/mie443_contest1/install/mie443_contest1/share/mie443_contest1/package.xml
+[18.320s] Invoked command in '/home/nicolas-rebollo/ros2_ws/src/mie443_contest1/build/mie443_contest1' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/jazzy DEBUGINFOD_URLS=https://debuginfod.ubuntu.com /usr/bin/cmake --install /home/nicolas-rebollo/ros2_ws/src/mie443_contest1/build/mie443_contest1

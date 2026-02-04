@@ -1,0 +1,4 @@
+source;share/mie443_contest1/local_setup.bash
+source;share/mie443_contest1/local_setup.dsv
+source;share/mie443_contest1/local_setup.sh
+source;share/mie443_contest1/local_setup.zsh
