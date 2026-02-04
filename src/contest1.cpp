@@ -35,7 +35,7 @@ void classifyRanges (const std::vector<float>& input_ranges, std::vector<float>&
         output_flags[i] = 1.00; //far
        }
        else{
-        output_flags[i] = 0.00; //close
+        output_flags[i] = 0.00; //close (includes NaN)
        }
 }
 }
@@ -88,7 +88,7 @@ float maxRange(const std::vector<float>& ranges) {
 
 //Given an index from laser scan, return the angle with respect to front center(base_link frame)
 float LaserToBaseTF(const int index, const float increment, float const angle_min){
-    float offset = deg2rad(90.0f);
+    float offset = deg2rad(90.0f); //review
     //Angle of index with respect to lidar heading in rad
     float θ_laser = angle_min + index*increment;
     float θ_front_in_laser = offset + θ_laser; 
@@ -167,6 +167,16 @@ public:
         bestClearance_ = 0.0;
         haveScan_ = false;
 
+        // movement state initialization 
+        start_yaw_ = 0.0;
+        start_pos_x_ = 0.0;
+        start_pos_y_ = 0.0;
+        target_rotation_ = 0.0;
+        target_move_ = 0.0;
+        turning_ = false;
+        moving_ = false;
+        backing_ = false;
+
         RCLCPP_INFO(this->get_logger(), "Contest 1 node initialized. Running for 480 seconds.");
     }
 
@@ -175,12 +185,12 @@ private:
     {
 
         //determine number of lasers
-        nLasers_= (scan->angle_max - scan->angle_min)/scan->angle_increment;
+        //nLasers_= (scan->angle_max - scan->angle_min)/scan->angle_increment;
         laserRange_ = scan->ranges;
         //laser index based on desired angle
-        desiredNLasers_ = deg2rad(desiredAngle_) / scan->angle_increment;
+        //desiredNLasers_ = deg2rad(desiredAngle_) / scan->angle_increment;
         //Threshold based on maximum laser distance
-        float threshold = 0.7*maxRange(laserRange_);
+        float threshold = 0.7*maxRange(laserRange_); //Play around 
 
         closeFar_.resize(laserRange_.size());
 
@@ -205,10 +215,11 @@ private:
     {
         // extract position from Odom message
         // x and y are the only valuable positons, rover does not move in the z direction
-        double pos_x_ = odom->pose.pose.position.x;
-        double pos_y_ = odom->pose.pose.position.y;
-        
-        double yaw_ = tf2::getYaw(odom->pose.pose.orientation); //in rad
+
+        // 
+        pos_x_ = odom->pose.pose.position.x;
+        pos_y_ = odom->pose.pose.position.y;
+        yaw_ = tf2::getYaw(odom->pose.pose.orientation); //in rad
 
         RCLCPP_INFO(this->get_logger(), "Position: (%.2f,%.2f), Orientation %.2frad, %.2fdeg", pos_x_, pos_y_, yaw_, rad2deg(yaw_));
     }
@@ -254,10 +265,125 @@ private:
             return;
         }
 
-        // Implement your exploration code here
+        //exploration + movement logic 
 
-        
-        
+        // Check if any bumper pressed (reactive)
+        bool any_bumper_pressed = false;
+        for (const auto& [key, val] : bumpers_) {
+            if (val) { any_bumper_pressed = true; break; }
+        }
+
+        // Priority 0: bumper preempts EVERYTHING: stop, cancel turn/move, back up 0.15m
+        if (any_bumper_pressed && !backing_) {
+            // immediate stop
+            angular_ = 0.0;
+            linear_ = 0.0;
+
+            // cancel current actions
+            turning_ = false;
+            moving_ = false;
+
+            // start backing up
+            start_pos_x_ = pos_x_;
+            start_pos_y_ = pos_y_;
+            target_move_ = -0.15;
+            backing_ = true;
+
+            // command reverse
+            linear_ = -0.1; //navigate at a speed of 0.1m/s when close to a wall
+            angular_ = 0.0;
+        }
+
+        // If backing up is in progress, continue until 0.15m is reached
+        // Need to implement a way to make sure backing does not cause a bump
+        else if (backing_) {
+            double distance_moved = std::sqrt(
+                std::pow(pos_x_ - start_pos_x_, 2) +
+                std::pow(pos_y_ - start_pos_y_, 2)
+            );
+
+            if (distance_moved < std::abs(target_move_)) {
+                linear_ = -0.1;
+                angular_ = 0.0;
+            } else {
+                // stop backing
+                backing_ = false;
+                linear_ = 0.0;
+                angular_ = 0.0;
+            }
+        }
+
+        // Finish turning in progress
+        else if (turning_) {
+            // how much rotated since start of turn
+            double angle_rotated = NormAngle(yaw_ - start_yaw_);
+            double tol = deg2rad(2.0); // small tolerance
+
+            if (std::abs(angle_rotated) + tol < std::abs(target_rotation_)) {
+                linear_ = 0.0;
+                angular_ = (target_rotation_ > 0.0) ? 1.0 : -1.0;
+            } else {
+                // turn complete: start moving
+                turning_ = false;
+
+                start_pos_x_ = pos_x_;
+                start_pos_y_ = pos_y_;
+
+                // move 0.9 * bestClearance_ (captured at plan time)
+                moving_ = true;
+
+                linear_ = 0.25;
+                angular_ = 0.0;
+            }
+        }
+
+        // Finish moving in progress
+        else if (moving_) {
+            double distance_moved = std::sqrt(
+                std::pow(pos_x_ - start_pos_x_, 2) +
+                std::pow(pos_y_ - start_pos_y_, 2)
+            );
+
+            if (distance_moved < std::abs(target_move_)) {
+                linear_ = 0.25;
+                angular_ = 0.0;
+            } else {
+                // move complete
+                moving_ = false;
+                linear_ = 0.0;
+                angular_ = 0.0;
+            }
+        }
+
+        // plan a new “turn then move” segment
+        else {
+            if (!haveScan_) {
+                // no scan yet -> stop
+                linear_ = 0.0;
+                angular_ = 0.0;
+            } else {
+                // Plan the next segment:
+                // 1) turn to bestAngle_
+                // 2) move forward 0.9*bestClearance_
+
+                start_yaw_ = yaw_;
+                target_rotation_ = bestAngle_;
+
+                // Capture distance NOW so it doesn't change mid-move
+                target_move_ = 0.85 * bestClearance_; //Play Around
+
+                // optional safety clamp (prevents absurd long moves)
+                // if (target_move_ < 0.05) target_move_ = 0.05;
+                // if (target_move_ > 2.0) target_move_ = 2.0;
+
+                turning_ = true;
+                moving_ = false;
+
+                linear_ = 0.0;
+                angular_ = (target_rotation_ > 0.0) ? 1.0 : -1.0;
+            }
+        }
+
         // Set velocity command
         geometry_msgs::msg::TwistStamped vel;
         vel.header.stamp = this->now();
@@ -294,6 +420,17 @@ private:
     float bestAngle_;
     float bestClearance_;
     bool haveScan_;
+
+    // ===== ADDED: movement state (no renaming of existing variables) =====
+    double start_yaw_;
+    double start_pos_x_;
+    double start_pos_y_;
+    double target_rotation_;
+    double target_move_;
+    bool turning_;
+    bool moving_;
+    bool backing_;
+    // ====================================================================
     
 };
 
