@@ -350,6 +350,7 @@ private:
                     random_change_=random_change_*(-1); //made negative randomly
                 }
                 target_rotation_=target_rotation_ + deg2rad(random_change_);
+                RCLCPP_INFO(this->get_logger(), "Random Rotation!");
                 random_rotate_counter_=1;
             }
             // Start turning sequence
