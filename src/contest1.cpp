@@ -350,7 +350,7 @@ private:
 
             //Adding random walk feature every 5 rotations --- adds a random degree of rotation between 10 and 30 degrees to target_rotation 
             random_rotate_counter_=random_rotate_counter_+1;
-            if (random_rotate_counter_==5){
+            if (random_rotate_counter_ == 3){
                 int random_change_=rotation_dist_(gen_);
                 if (sign_change_(gen_)==0)
                 {
