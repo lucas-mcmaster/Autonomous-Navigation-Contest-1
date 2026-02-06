@@ -14,6 +14,9 @@
 #include "tf2/utils.h"
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
+
+//If front bumper gets hit limit the open space choice to be the back half (in the case the obstacle cannot be detected using LiDar)
+//For wide sequence implemenmt minrange index
 //Utility functions for conversions 
 inline double rad2deg(double rad){
     return rad *180.0/M_PI;
@@ -133,8 +136,8 @@ float minRangeFromIndex(const std::vector<float>& ranges, const int mid_index) {
   if (ranges.empty() || mid_index < 0 || mid_index >= static_cast<int>(ranges.size())) {
     return std::numeric_limits<float>::quiet_NaN();
   }
-  int start = std::max(0, mid_index - 5);
-  int end = std::min(static_cast<int>(ranges.size()) - 1, mid_index + 5);
+  int start = std::max(0, mid_index - 10);
+  int end = std::min(static_cast<int>(ranges.size()) - 1, mid_index + 10);
   float min_r = std::numeric_limits<float>::infinity();
   bool saw_finite = false;
   bool saw_nan = false;
@@ -190,7 +193,10 @@ float NormAngle(float angle){
     return angle;
 }
 
-
+//wallhug algorithm
+/*
+The way to implement the wall hug is to use the side with minimum laser distance, shift 90 degrees from that side and move straight unril bump front
+once bump front turn to face the direction of the most open space */
 using namespace std::chrono_literals;
 
 //function 
@@ -277,7 +283,7 @@ private:
 
         laserRange_ = scan->ranges;
         //Threshold based on maximum laser distance
-        float threshold = 0.7f * maxRange(laserRange_); //Play around
+        float threshold = 0.8f * maxRange(laserRange_); //Play around
         if (!std::isfinite(threshold) || threshold <= 0.0f) {
             threshold = scan->range_max;
         }
@@ -291,11 +297,11 @@ private:
         
         if (far_sequence_){
             midpoint_ = midSequenceFar(closeFar_, laserRange_.size());
-            RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 2000, "Choosing most wide open space");
+            // RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 2000, "Choosing most wide open space");
         }
         else{
             midpoint_ = midSequenceClose(closeFar_, laserRange_.size(), threshold, scan->angle_increment);
-            RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 2000, "Choosing most narrow open space");
+            // RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 2000, "Choosing most narrow open space");
 
         }
 
@@ -320,7 +326,7 @@ private:
                 return;
             }
             haveScan_ = true;
-            RCLCPP_INFO(this->get_logger(), "Angle of most open space: %f, Range of space: %f", rad2deg(bestAngle_), bestClearance_);
+            // RCLCPP_INFO(this->get_logger(), "Angle of most open space: %f, Range of space: %f", rad2deg(bestAngle_), bestClearance_);
         }
 
     }
@@ -481,6 +487,12 @@ private:
                 // Plan the next segment:
                 // 1) turn to bestAngle_
                 // 2) move forward 0.9*bestClearance_
+                if(far_sequence_){
+                    RCLCPP_INFO(this->get_logger(), "Looking for most wide open space");
+                }
+                else{
+                    RCLCPP_INFO(this->get_logger(), "Looking for most narrow open space");
+                }
 
                 start_yaw_ = yaw_;
                 target_rotation_ = bestAngle_;
@@ -499,6 +511,7 @@ private:
 
                 // alternate planning mode on each executed segment
                 far_sequence_ = !far_sequence_;
+                
             }
         }
 
