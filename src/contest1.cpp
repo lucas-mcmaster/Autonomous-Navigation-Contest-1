@@ -27,14 +27,17 @@ inline double deg2rad(double deg){
 void classifyRanges (const std::vector<float>& input_ranges, std::vector<float>& output_flags, int size, float threshold){
     for(int i=0; i<size; i++){
        const float r = input_ranges[i];
-       if(!std::isfinite(r)){
+       if(std::isnan(r)){
+        output_flags[i] = 0.00; //treat NaN as close/unknown
+       }
+       else if(std::isinf(r)){
         output_flags[i] = 1.00; //treat inf as open space
        }
        else if(r > threshold){
         output_flags[i] = 1.00; //far
        }
        else{
-        output_flags[i] = 0.00; //close (includes NaN)
+        output_flags[i] = 0.00; //close
        }
 }
 }
@@ -68,7 +71,8 @@ int midSequenceFar (const std::vector<float>& sequence, int size){
         return -1;
     }
     else{
-        int mid_index = last_index - longest/2;
+        double mid = static_cast<double>(last_index) - (static_cast<double>(longest) - 1.0) / 2.0;
+        int mid_index = static_cast<int>(std::lround(mid));
         return mid_index;
     }
 }
@@ -76,38 +80,40 @@ int midSequenceFar (const std::vector<float>& sequence, int size){
 //Need to check that it is wide enough for the body of the turtlebot
 //Turtlebot Body is 0.4 m wide 
 int midSequenceClose (const std::vector<float>& sequence, int size, const float threshold, const float angle_increment){
+    //check valid function parameters
+    if (!std::isfinite(threshold) || threshold <= 0.0f || angle_increment <= 0.0f) {
+        return -1;
+    }
     //minimum theta value for arc length > bot width 
 
     float angle_range = 0.5/threshold;
     int index_width = angle_range / angle_increment; 
-    int current = 0;
-    int shortest = 1000;
-    int last_index = 0;
+    int run_start = -1;
+    int run_len = 0;
+    int shortest = std::numeric_limits<int>::max();
+    int best_mid = -1;
 
     //loop to find the shortest sequence of far ranges (range = 1.0)
     for(int i=0; i<size; i++){
         if(sequence[i] > 0.5 ){
-            current ++;
-            if(current < shortest && current > index_width){
-                last_index = i;
-                shortest = current;
+            if (run_len == 0) {
+                run_start = i;
             }
-            else{
-                continue;
+            run_len++;
+        } else {
+            if (run_len >= index_width && run_len < shortest) {
+                shortest = run_len;
+                best_mid = run_start + (run_len - 1) / 2;
             }
-        }
-        else{
-            current = 0;
+            run_len = 0;
         }
     }
-    //return -1 incase no sequence of far ranges found, otherwise return left mid point
-    if(!shortest){
-        return -1;
+    // handle run that reaches the end
+    if (run_len >= index_width && run_len < shortest) {
+        shortest = run_len;
+        best_mid = run_start + (run_len - 1) / 2;
     }
-    else{
-        int mid_index = last_index - shortest/1.5;
-        return mid_index;
-    }
+    return best_mid;
 }
 
 //function to return the maximum range found from laser scan 
@@ -121,14 +127,22 @@ float maxRange(const std::vector<float>& ranges) {
   return max_r;
 }
 
+//given the middle index find the lowest range surrounding it 
 float minRangeFromIndex(const std::vector<float>& ranges, const int mid_index) {
-  float min = 12.0 ; 
-  for (int i = mid_index - 5; i < mid_index + 5; i++) {
-    if (ranges[i] < min) {
-      min = ranges[i];
+    //check all the parameters passed in are correct 
+  if (ranges.empty() || mid_index < 0 || mid_index >= static_cast<int>(ranges.size())) {
+    return std::numeric_limits<float>::infinity();
+  }
+  int start = std::max(0, mid_index - 5);
+  int end = std::min(static_cast<int>(ranges.size()) - 1, mid_index + 5);
+  float min_r = std::numeric_limits<float>::infinity();
+  for (int i = start; i <= end; i++) {
+    const float r = ranges[i];
+    if (std::isfinite(r)) {
+      min_r = std::min(min_r, r);
     }
   }
-  return min;
+  return min_r;
 }
 
 
@@ -232,7 +246,7 @@ public:
         backing_ = false;
         
         //initialize Sequence
-        far_sequence_ = false;
+        far_sequence_ = true;
         midpoint_ = -1;
 
         RCLCPP_INFO(this->get_logger(), "Contest 1 node initialized. Running for 480 seconds.");
@@ -243,37 +257,45 @@ private:
     {
 
         //determine number of lasers
-        nLasers_= (scan->angle_max - scan->angle_min)/scan->angle_increment;
+        nLasers_= static_cast<int32_t>((scan->angle_max - scan->angle_min)/scan->angle_increment);
         
 
         laserRange_ = scan->ranges;
         //Threshold based on maximum laser distance
-        float threshold = 0.7*maxRange(laserRange_); //Play around
+        float threshold = 0.7f * maxRange(laserRange_); //Play around
+        if (!std::isfinite(threshold) || threshold <= 0.0f) {
+            threshold = scan->range_max;
+        }
+        if (!std::isfinite(threshold) || threshold <= 0.0f) {
+            threshold = 1.0f;
+        }
              
         closeFar_.resize(laserRange_.size());
 
         classifyRanges(laserRange_, closeFar_, laserRange_.size(), threshold);
         
-        if (!far_sequence_){
+        if (far_sequence_){
             midpoint_ = midSequenceFar(closeFar_, laserRange_.size());
-            far_sequence_ = true;
-            RCLCPP_INFO(this->get_logger(), "Choosing most wide open space");
+            RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 2000, "Choosing most wide open space");
         }
         else{
             midpoint_ = midSequenceClose(closeFar_, laserRange_.size(), threshold, scan->angle_increment);
-            far_sequence_ = false;
-            RCLCPP_INFO(this->get_logger(), "Choosing most narrow open space");
+            RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 2000, "Choosing most narrow open space");
 
         }
 
         if (midpoint_ == -1) {
             //RCLCPP_INFO(this->get_logger(), "No open space found");
             //implement failsafe code 
+            haveScan_ = false;
         }   
         else{
             bestAngle_ = LasertoFrontTF(midpoint_, scan->angle_increment);
            //bestClearance_ = (std::isinf(laserRange_[midpoint_]))? 12.0: laserRange_[midpoint_];
-            bestClearance_ = (minRangeFromIndex(laserRange_, midpoint_));
+            bestClearance_ = minRangeFromIndex(laserRange_, midpoint_);
+            if (!std::isfinite(bestClearance_) || bestClearance_ <= 0.0f) {
+                bestClearance_ = scan->range_max;
+            }
             haveScan_ = true;
             RCLCPP_INFO(this->get_logger(), "Angle of most open space: %f, Range of space: %f", rad2deg(bestAngle_), bestClearance_);
         }
@@ -440,18 +462,20 @@ private:
                 start_yaw_ = yaw_;
                 target_rotation_ = bestAngle_;
 
-                // Capture distance NOW so it doesn't change mid-move
+                // Capture distance so it doesn't change mid-move
                 target_move_ = 0.8 * bestClearance_; //Play Around
-
-                // optional safety clamp (prevents absurd long moves)
-                // if (target_move_ < 0.05) target_move_ = 0.05;
-                // if (target_move_ > 2.0) target_move_ = 2.0;
+                if (!std::isfinite(target_move_) || target_move_ < 0.0) {
+                    target_move_ = 0.0;
+                }
 
                 turning_ = true;
                 moving_ = false;
 
                 linear_ = 0.0;
                 angular_ = (target_rotation_ > 0.0) ? 1.0 : -1.0;
+
+                // alternate planning mode on each executed segment
+                far_sequence_ = !far_sequence_;
             }
         }
 
