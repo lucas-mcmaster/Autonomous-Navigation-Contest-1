@@ -80,8 +80,19 @@ ros2 topic echo /odom
 ros2 topic echo /hazard_detection
 ```
 
-8. View structure of a laser scan
+3.8. View structure of a laser scan
 ```cpp
 ros2 topic type <topic name> #Shows the message type inside the specified topic
 ros2 interface show <message type> #Shows the message structure of the specified message type
 ```
+
+3.9. Undock command
+```cpp
+ros2 action send_goal /undock irobot_create_msgs/action/Undock "{}"
+```
+
+3.10. Dock command
+```cpp
+ros2 action send_goal /dock irobot_create_msgs/action/Dock "{}"
+```
+
