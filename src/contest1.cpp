@@ -40,20 +40,23 @@ class Contest1Node : public rclcpp::Node
 public:
     Contest1Node()
         : Node("contest1_node"),gen_(std::random_device{}()), 
-                                rotation_dist_(10, 30),//initializing random number gen functions
+                                rotation_dist_(10, 30), // initializing random number gen functions
                                 sign_change_(0, 1) // 0 means negative, 1 means positive
     {
         // Initialize publisher for velocity commands
         vel_pub_ = this->create_publisher<geometry_msgs::msg::TwistStamped>("/cmd_vel", 10);
 
+        // LiDAR scan subscriber
         laser_sub_ = this->create_subscription<sensor_msgs::msg::LaserScan>(
             "/scan", rclcpp::SensorDataQoS(),
             std::bind(&Contest1Node::laserCallback, this, std::placeholders::_1));
 
+        // Bumper hazard detection subscriber
         hazard_sub_ = this->create_subscription<irobot_create_msgs::msg::HazardDetectionVector>(
             "/hazard_detection", rclcpp::SensorDataQoS(),
             std::bind(&Contest1Node::hazardCallback, this, std::placeholders::_1));
 
+        // Turtlebot odometry subscriber
         odom_sub_ = this->create_subscription<nav_msgs::msg::Odometry>(
             "/odom", rclcpp::SensorDataQoS(),
             std::bind(&Contest1Node::odomCallback, this, std::placeholders::_1));
@@ -265,12 +268,13 @@ private:
                             distance_moved,
                             target_distance);
             } else {
-                // Reached target distance, start moving forward again
-                RCLCPP_INFO(this->get_logger(), "Reached 0.15m backup, resuming forward movement");
+                // Reached target distance, rotate 90deg and then keep moving
+                RCLCPP_INFO(this->get_logger(), "Reached 0.15m backup, start turning");
                 moving_ = false;
-                //Code to turn around after hitting wall - copied from below
+
+                // Capture starting yaw to compare against current yaw
                 start_yaw_ = yaw_;
-                
+
                 // If avg distance to the right >= the left, turn 90deg to the right
                 if (avg_right_dist_ >= avg_left_dist_) {
                     target_rotation_ = deg2rad(-90.0); // right turn
@@ -287,6 +291,7 @@ private:
                 angular_ = (target_rotation_ > 0.0) ? 1.0 : -1.0;
             }
         }
+
         // Priority 1b: finish any in-progress 15 or 90 deg turn
         else if (turning_) {
             // Check how much the robot has rotated
@@ -349,9 +354,9 @@ private:
                 int random_change_=rotation_dist_(gen_);
                 if (sign_change_(gen_)==0)
                 {
-                    random_change_=random_change_*(-1); //made negative randomly
+                    random_change_=random_change_*(-1); // made negative randomly
                 }
-                target_rotation_=target_rotation_ + deg2rad(random_change_);
+                target_rotation_= target_rotation_ + deg2rad(random_change_);
                 RCLCPP_INFO(this->get_logger(), "Random Rotation!");
                 random_rotate_counter_=1;
             }
