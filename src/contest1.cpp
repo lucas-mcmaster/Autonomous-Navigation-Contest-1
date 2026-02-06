@@ -269,6 +269,8 @@ private:
                 RCLCPP_INFO(this->get_logger(), "Reached 0.15m backup, resuming forward movement");
                 moving_ = false;
                 //Code to turn around after hitting wall - copied from below
+                start_yaw_ = yaw_;
+                
                 // If avg distance to the right >= the left, turn 90deg to the right
                 if (avg_right_dist_ >= avg_left_dist_) {
                     target_rotation_ = deg2rad(-90.0); // right turn
