@@ -129,20 +129,35 @@ float maxRange(const std::vector<float>& ranges) {
 
 //given the middle index find the lowest range surrounding it 
 float minRangeFromIndex(const std::vector<float>& ranges, const int mid_index) {
-    //check all the parameters passed in are correct 
+  // check all the parameters passed in are correct
   if (ranges.empty() || mid_index < 0 || mid_index >= static_cast<int>(ranges.size())) {
-    return std::numeric_limits<float>::infinity();
+    return std::numeric_limits<float>::quiet_NaN();
   }
   int start = std::max(0, mid_index - 5);
   int end = std::min(static_cast<int>(ranges.size()) - 1, mid_index + 5);
   float min_r = std::numeric_limits<float>::infinity();
+  bool saw_finite = false;
+  bool saw_nan = false;
+  
   for (int i = start; i <= end; i++) {
     const float r = ranges[i];
-    if (std::isfinite(r)) {
-      min_r = std::min(min_r, r);
+    if (std::isnan(r)) {
+      saw_nan = true;
+      continue;
     }
+    if (std::isinf(r)) {
+      continue;
+    }
+    saw_finite = true;
+    min_r = std::min(min_r, r);
   }
-  return min_r;
+  if (saw_finite) {
+    return min_r;
+  }
+  if (saw_nan) {
+    return std::numeric_limits<float>::quiet_NaN();
+  }
+  return std::numeric_limits<float>::infinity();
 }
 
 
@@ -293,8 +308,16 @@ private:
             bestAngle_ = LasertoFrontTF(midpoint_, scan->angle_increment);
            //bestClearance_ = (std::isinf(laserRange_[midpoint_]))? 12.0: laserRange_[midpoint_];
             bestClearance_ = minRangeFromIndex(laserRange_, midpoint_);
-            if (!std::isfinite(bestClearance_) || bestClearance_ <= 0.0f) {
+            if (std::isnan(bestClearance_) || bestClearance_ <= 0.0f) {
+                haveScan_ = false;
+                return;
+            }
+            if (std::isinf(bestClearance_)) {
                 bestClearance_ = scan->range_max;
+            }
+            if (!std::isfinite(bestClearance_) || bestClearance_ <= 0.0f) {
+                haveScan_ = false;
+                return;
             }
             haveScan_ = true;
             RCLCPP_INFO(this->get_logger(), "Angle of most open space: %f, Range of space: %f", rad2deg(bestAngle_), bestClearance_);
@@ -463,7 +486,7 @@ private:
                 target_rotation_ = bestAngle_;
 
                 // Capture distance so it doesn't change mid-move
-                target_move_ = 0.8 * bestClearance_; //Play Around
+                target_move_ = 0.75 * bestClearance_; //Play Around
                 if (!std::isfinite(target_move_) || target_move_ < 0.0) {
                     target_move_ = 0.0;
                 }
