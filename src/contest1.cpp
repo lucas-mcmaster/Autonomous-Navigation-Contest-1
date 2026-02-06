@@ -4,6 +4,7 @@
 #include <map>
 #include <vector>
 #include <algorithm>
+#include <random>
 
 #include "rclcpp/rclcpp.hpp"
 #include "geometry_msgs/msg/twist_stamped.hpp"
@@ -38,7 +39,9 @@ class Contest1Node : public rclcpp::Node
 {
 public:
     Contest1Node()
-        : Node("contest1_node")
+        : Node("contest1_node"),gen_(std::random_device{}()), 
+                                rotation_dist_(10, 30),//initializing random number gen functions
+                                sign_change_(0, 1) // 0 means negative, 1 means positive
     {
         // Initialize publisher for velocity commands
         vel_pub_ = this->create_publisher<geometry_msgs::msg::TwistStamped>("/cmd_vel", 10);
@@ -59,6 +62,12 @@ public:
         timer_ = this->create_wall_timer(
             100ms, std::bind(&Contest1Node::controlLoop, this));
 
+<<<<<<< HEAD
+=======
+        //Initializing random number generator
+
+
+>>>>>>> origin/Lucas'-code
         // Initialize general timer and movement variables
         start_time_ = this->now();
         angular_ = 0.0;
@@ -71,6 +80,10 @@ public:
         start_pos_y_ = 0.0;
         target_rotation_ = 0.0;
         target_move_ = 0.0;
+<<<<<<< HEAD
+=======
+        random_rotate_counter_=0; //counter to implement an occasional random walk
+>>>>>>> origin/Lucas'-code
         turning_ = false;
         moving_ = false;
 
@@ -252,7 +265,11 @@ private:
 
             if (distance_moved < target_distance) {
                 // Continue moving until robot hits target distance
+<<<<<<< HEAD
                 linear_ = (target_move_ > 0.0) ? 0.25 : -0.25;
+=======
+                linear_ = (target_move_ > 0.0) ? 0.1 : -0.1; //CHANGED TO 0.1 BECAUSE IF YOU BUMPED YOU ARE CLOSE TO WALL
+>>>>>>> origin/Lucas'-code
                 angular_ = 0.0;
                 RCLCPP_INFO(this->get_logger(), "Moving: %.3f / %.3f m",
                             distance_moved,
@@ -261,8 +278,26 @@ private:
                 // Reached target distance, start moving forward again
                 RCLCPP_INFO(this->get_logger(), "Reached 0.15m backup, resuming forward movement");
                 moving_ = false;
+<<<<<<< HEAD
                 linear_ = 0.25;
                 angular_ = 0.0;
+=======
+                //Code to turn around after hitting wall - copied from below
+                // If avg distance to the right >= the left, turn 90deg to the right
+                if (avg_right_dist_ >= avg_left_dist_) {
+                    target_rotation_ = deg2rad(-90.0); // right turn
+                } 
+                
+                // If avg distance to the left > the right, turn 90deg to the left
+                else {
+                    target_rotation_ = deg2rad(90.0); // left turn
+                }
+
+                // Start turning sequence
+                turning_ = true;
+                linear_ = 0.0;
+                angular_ = (target_rotation_ > 0.0) ? 1.0 : -1.0;
+>>>>>>> origin/Lucas'-code
             }
         }
         // Priority 1b: finish any in-progress 15 or 90 deg turn
@@ -321,6 +356,21 @@ private:
                 target_rotation_ = deg2rad(90.0); // left turn
             }
 
+<<<<<<< HEAD
+=======
+            //Adding random walk feature every 5 rotations --- adds a random degree of rotation between 10 and 30 degrees to target_rotation 
+            random_rotate_counter_=random_rotate_counter_+1;
+            if (random_rotate_counter_==5){
+                int random_change_=rotation_dist_(gen_);
+                if (sign_change_(gen_)==0)
+                {
+                    random_change_=random_change_*(-1); //made negative randomly
+                }
+                target_rotation_=target_rotation_ + deg2rad(random_change_);
+                RCLCPP_INFO(this->get_logger(), "Random Rotation!");
+                random_rotate_counter_=1;
+            }
+>>>>>>> origin/Lucas'-code
             // Start turning sequence
             turning_ = true;
             linear_ = 0.0;
@@ -345,7 +395,11 @@ private:
             // Start backwards movement
             moving_ = true;
             turning_ = false;
+<<<<<<< HEAD
             linear_ = (target_move_ > 0.0) ? 0.25 : -0.25;
+=======
+            linear_ = (target_move_ > 0.0) ? 0.1 : -0.1; //Changed from 0.25 to 0.1 as if you hit bumper you must be close to wall
+>>>>>>> origin/Lucas'-code
             angular_ = 0.0;
         }
 
@@ -394,6 +448,13 @@ private:
     double target_move_;
     bool turning_;
     bool moving_;
+<<<<<<< HEAD
+=======
+    int random_rotate_counter_;
+    std::mt19937 gen_;
+    std::uniform_int_distribution<int> rotation_dist_; //These are random number generators to flip between negative and positive
+    std::uniform_int_distribution<int> sign_change_;
+>>>>>>> origin/Lucas'-code
 };
 
 int main(int argc, char** argv)
