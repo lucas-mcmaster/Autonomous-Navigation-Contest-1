@@ -21,7 +21,6 @@ inline double rad2deg(double rad){
 inline double deg2rad(double deg){
     return deg* M_PI/180.0;
 }
-
 //Func to convert range array to [far,close....etc]
 //Modifies the array in place (void return)
 //edge case: invalid ranges 
@@ -42,7 +41,7 @@ void classifyRanges (const std::vector<float>& input_ranges, std::vector<float>&
 
 //function to return the midpoint index of the longest sequence of far ranges
 //edge cases to address: multiple long sequences of the same length
-int midSequence (const std::vector<float>& sequence, int size){
+int midSequenceFar (const std::vector<float>& sequence, int size){
     
     int current = 0;
     int longest = 0;
@@ -73,6 +72,43 @@ int midSequence (const std::vector<float>& sequence, int size){
         return mid_index;
     }
 }
+//return the center of the narrowest space of far range 
+//Need to check that it is wide enough for the body of the turtlebot
+//Turtlebot Body is 0.4 m wide 
+int midSequenceClose (const std::vector<float>& sequence, int size, const float threshold, const float angle_increment){
+    //minimum theta value for arc length > bot width 
+
+    float angle_range = 0.5/threshold;
+    int index_width = angle_range / angle_increment; 
+    int current = 0;
+    int shortest = 1000;
+    int last_index = 0;
+
+    //loop to find the shortest sequence of far ranges (range = 1.0)
+    for(int i=0; i<size; i++){
+        if(sequence[i] > 0.5 ){
+            current ++;
+            if(current < shortest && current > index_width){
+                last_index = i;
+                shortest = current;
+            }
+            else{
+                continue;
+            }
+        }
+        else{
+            current = 0;
+        }
+    }
+    //return -1 incase no sequence of far ranges found, otherwise return left mid point
+    if(!shortest){
+        return -1;
+    }
+    else{
+        int mid_index = last_index - shortest/1.5;
+        return mid_index;
+    }
+}
 
 //function to return the maximum range found from laser scan 
 float maxRange(const std::vector<float>& ranges) {
@@ -85,15 +121,33 @@ float maxRange(const std::vector<float>& ranges) {
   return max_r;
 }
 
+float minRangeFromIndex(const std::vector<float>& ranges, const int mid_index) {
+  float min = 12.0 ; 
+  for (int i = mid_index - 5; i < mid_index + 5; i++) {
+    if (ranges[i] < min) {
+      min = ranges[i];
+    }
+  }
+  return min;
+}
 
-//Given an index from laser scan, return the angle with respect to front center(base_link frame)
-float LaserToBaseTF(const int index, const float increment, float const angle_min){
-    float offset = deg2rad(90.0f); //review
-    //Angle of index with respect to lidar heading in rad
-    float θ_laser = angle_min + index*increment;
-    float θ_front_in_laser = offset + θ_laser; 
 
-    return θ_front_in_laser;
+
+//Given an index from laser scan, returns yaw with repsect to front of robot
+float LasertoFrontTF(const int mid_index, const float increment){
+    float angle = rad2deg(increment*mid_index);
+    if (angle <= 90){
+        angle -= 90; 
+    }
+    else if (angle <= 270){
+        angle -= 90;
+    }
+    else {
+        angle -= 450;
+    }
+
+    return deg2rad(angle);
+     
 }
 //Given an angle from [0,2pi], normalize to [-pi,pi]
 //Since odom angle measurement is [-pi,pi]
@@ -176,6 +230,10 @@ public:
         turning_ = false;
         moving_ = false;
         backing_ = false;
+        
+        //initialize Sequence
+        far_sequence_ = false;
+        midpoint_ = -1;
 
         RCLCPP_INFO(this->get_logger(), "Contest 1 node initialized. Running for 480 seconds.");
     }
@@ -185,26 +243,37 @@ private:
     {
 
         //determine number of lasers
-        //nLasers_= (scan->angle_max - scan->angle_min)/scan->angle_increment;
-        laserRange_ = scan->ranges;
-        //laser index based on desired angle
-        //desiredNLasers_ = deg2rad(desiredAngle_) / scan->angle_increment;
-        //Threshold based on maximum laser distance
-        float threshold = 0.7*maxRange(laserRange_); //Play around 
+        nLasers_= (scan->angle_max - scan->angle_min)/scan->angle_increment;
+        
 
+        laserRange_ = scan->ranges;
+        //Threshold based on maximum laser distance
+        float threshold = 0.7*maxRange(laserRange_); //Play around
+             
         closeFar_.resize(laserRange_.size());
 
         classifyRanges(laserRange_, closeFar_, laserRange_.size(), threshold);
-
-        int midpoint_ = midSequence(closeFar_, laserRange_.size());
         
-        bestAngle_ = NormAngle(LaserToBaseTF(midpoint_, scan->angle_increment, scan->angle_min));
-        bestClearance_ = laserRange_[midpoint_];
-        
-        if (midpoint_ == -1) {
-            RCLCPP_INFO(this->get_logger(), "No open space found");
+        if (!far_sequence_){
+            midpoint_ = midSequenceFar(closeFar_, laserRange_.size());
+            far_sequence_ = true;
+            RCLCPP_INFO(this->get_logger(), "Choosing most wide open space");
         }
         else{
+            midpoint_ = midSequenceClose(closeFar_, laserRange_.size(), threshold, scan->angle_increment);
+            far_sequence_ = false;
+            RCLCPP_INFO(this->get_logger(), "Choosing most narrow open space");
+
+        }
+
+        if (midpoint_ == -1) {
+            //RCLCPP_INFO(this->get_logger(), "No open space found");
+            //implement failsafe code 
+        }   
+        else{
+            bestAngle_ = LasertoFrontTF(midpoint_, scan->angle_increment);
+           //bestClearance_ = (std::isinf(laserRange_[midpoint_]))? 12.0: laserRange_[midpoint_];
+            bestClearance_ = (minRangeFromIndex(laserRange_, midpoint_));
             haveScan_ = true;
             RCLCPP_INFO(this->get_logger(), "Angle of most open space: %f, Range of space: %f", rad2deg(bestAngle_), bestClearance_);
         }
@@ -221,7 +290,7 @@ private:
         pos_y_ = odom->pose.pose.position.y;
         yaw_ = tf2::getYaw(odom->pose.pose.orientation); //in rad
 
-        RCLCPP_INFO(this->get_logger(), "Position: (%.2f,%.2f), Orientation %.2frad, %.2fdeg", pos_x_, pos_y_, yaw_, rad2deg(yaw_));
+        //RCLCPP_INFO(this->get_logger(), "Position: (%.2f,%.2f), Orientation %.2frad, %.2fdeg", pos_x_, pos_y_, yaw_, rad2deg(yaw_));
     }
 
     /*Each time I get a hazard message, I look at all the hazards.
@@ -361,6 +430,8 @@ private:
                 // no scan yet -> stop
                 linear_ = 0.0;
                 angular_ = 0.0;
+
+                //Implement failsafe code
             } else {
                 // Plan the next segment:
                 // 1) turn to bestAngle_
@@ -370,7 +441,7 @@ private:
                 target_rotation_ = bestAngle_;
 
                 // Capture distance NOW so it doesn't change mid-move
-                target_move_ = 0.85 * bestClearance_; //Play Around
+                target_move_ = 0.8 * bestClearance_; //Play Around
 
                 // optional safety clamp (prevents absurd long moves)
                 // if (target_move_ < 0.05) target_move_ = 0.05;
@@ -430,7 +501,13 @@ private:
     bool turning_;
     bool moving_;
     bool backing_;
-    // 
+    
+    //Robot dimensions
+    float bot_width_;
+    
+    //Sequence State 
+    bool far_sequence_;
+    int midpoint_;
     
 };
 
