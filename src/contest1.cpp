@@ -312,13 +312,29 @@ private:
             }
         }
 
-        // Priority 2: if obstacle to the left or right, start a 15 deg turn away from obstacle
-        else if (!any_bumper_pressed && (min_left_dist_ < 0.4 || min_right_dist_ < 0.4)) {
+        // Priority 2: if bumper hit, back up 0.15 m
+        else if (any_bumper_pressed) {
+            // Record starting position
+            start_pos_x_ = pos_x_;
+            start_pos_y_ = pos_y_;
+
+            // Set target moving distance
+            target_move_ = -0.15;
+
+            // Start backwards movement
+            moving_ = true;
+            turning_ = false;
+            linear_ = (target_move_ > 0.0) ? 0.1 : -0.1; //Changed from 0.25 to 0.1 as if you hit bumper you must be close to wall
+            angular_ = 0.0;
+        }
+
+        // Priority 3: if obstacle to the left or right, start a 15 deg turn away from obstacle
+        else if (!any_bumper_pressed && (min_left_dist_ < 0.25 || min_right_dist_ < 0.25)) {
             // Capture starting yaw (heading)
             start_yaw_ = yaw_;
 
             // If obstacle to the left within 0.4m, turn right 15deg
-            if (min_left_dist_ < 0.4) {
+            if (min_left_dist_ < 0.25) {
                 target_rotation_ = deg2rad(-15.0); // right turn
             } 
             
@@ -333,8 +349,8 @@ private:
             angular_ = (target_rotation_ > 0.0) ? 1.0 : -1.0;
         }
 
-        // Priority 3: if obstacle in front, decide which way to go based on lidar data (skewed to right)
-        else if (!any_bumper_pressed && min_front_dist_ < 0.5) {
+        // Priority 4: if obstacle in front, decide which way to go based on lidar data (skewed to right)
+        else if (!any_bumper_pressed && min_front_dist_ < 0.4) {
             // Capture starting yaw (heading)
             start_yaw_ = yaw_;
 
@@ -366,32 +382,22 @@ private:
             angular_ = (target_rotation_ > 0.0) ? 1.0 : -1.0;
         }
 
-        // Priority 4: move forward if clear
-        else if (!any_bumper_pressed && min_front_dist_ >= 0.5) {
+        // Priority 5: move forward if clear (slow down when near walls)
+        else if (!any_bumper_pressed && min_front_dist_ >= 0.4) {
             angular_ = 0.0;
-            linear_ = 0.25;
-        }
-
-        // Priority 5: if bumper hit, back up 0.15 m
-        else if (any_bumper_pressed) {
-            // Record starting position
-            start_pos_x_ = pos_x_;
-            start_pos_y_ = pos_y_;
-
-            // Set target moving distance
-            target_move_ = -0.15;
-
-            // Start backwards movement
-            moving_ = true;
-            turning_ = false;
-            linear_ = (target_move_ > 0.0) ? 0.1 : -0.1; //Changed from 0.25 to 0.1 as if you hit bumper you must be close to wall
-            angular_ = 0.0;
+            if (min_front_dist_ <= 0.5 || min_left_dist_ <= 0.5 || min_right_dist_ <= 0.5) {
+                linear_ = 0.1;
+                RCLCPP_INFO(this->get_logger(), "\nSlow down activated\n");
+            } else {
+                linear_ = 0.25;
+            }
         }
 
         // Fallback for errors: stop moving robot
         else {
             angular_ = 0.0;
             linear_ = 0.0;
+            RCLCPP_INFO(this->get_logger(), "Else statement shutdown activated\n\n\n\n");
             rclcpp::shutdown();
             return;
         }
