@@ -94,10 +94,6 @@ int midSequenceFar (const std::vector<float>& sequence, int size){
 //Need to check that it is wide enough for the body of the turtlebot
 //Turtlebot Body is 0.4 m wide 
 int midSequenceClose (const std::vector<float>& sequence, int size, const float threshold, const float angle_increment){
-    //check valid function parameters
-    if (!std::isfinite(threshold) || threshold <= 0.0f || angle_increment <= 0.0f) {
-        return -1;
-    }
     //minimum theta value for arc length > bot width 
 
     float angle_range = 0.5/threshold;
@@ -374,21 +370,35 @@ private:
         // 2. NAVIGATION LASER CALLBACK SECTION:
         laserRange_ = scan->ranges;
 
-        //Threshold based on maximum laser distance
-        float threshold = 0.7f * maxRange(laserRange_); //Play around
-        if (!std::isfinite(threshold) || threshold <= 0.0f) {
-            threshold = scan->range_max;
+        //Threshold for most wide space based on maximum laser distance
+        float threshold_wide = 0.8f * maxRange(laserRange_); //Play around
+        if (!std::isfinite(threshold_wide) || threshold_wide <= 0.0f) {
+            threshold_wide = scan->range_max;
         }
-        if (!std::isfinite(threshold) || threshold <= 0.0f) {
-            threshold = 1.0f;
+        if (!std::isfinite(threshold_wide) || threshold_wide <= 0.0f) {
+            threshold_wide = 1.0f;
         }
-             
-        closeFar_.resize(laserRange_.size());
-
-        classifyRanges(laserRange_, closeFar_, laserRange_.size(), threshold);
         
-        int midpoint_far = midSequenceFar(closeFar_, laserRange_.size());
-        int midpoint_close = midSequenceClose(closeFar_, laserRange_.size(), threshold, scan->angle_increment);
+        //Threshold for most narrow space based on maximum laser distance
+        float threshold_narrow = 0.75f * maxRange(laserRange_); //Play around
+        if (!std::isfinite(threshold_narrow) || threshold_narrow <= 0.0f) {
+            threshold_narrow = scan->range_max;
+        }
+        if (!std::isfinite(threshold_narrow) || threshold_narrow <= 0.0f) {
+            threshold_narrow = 1.0f;
+        }
+
+             
+        wideSpace_.resize(laserRange_.size());
+        narrowSpace_.resize(laserRange_.size());
+
+
+        classifyRanges(laserRange_, wideSpace_, laserRange_.size(), threshold_wide);
+        classifyRanges(laserRange_, narrowSpace_, laserRange_.size(), threshold_narrow);
+
+        
+        int midpoint_far = midSequenceFar(wideSpace_, laserRange_.size());
+        int midpoint_close = midSequenceClose(narrowSpace_, laserRange_.size(), threshold_narrow, scan->angle_increment);
 
         computeBestFromMidpoint(midpoint_far, scan, bestAngle_far_, bestClearance_far_, haveScan_far_);
         computeBestFromMidpoint(midpoint_close, scan, bestAngle_close_, bestClearance_close_, haveScan_close_);
@@ -469,25 +479,30 @@ private:
             }
         }
 
+        const float max_turn = deg2rad(120.0f);
+
         auto choose_turn_angle = [&](float &angle_out, const char* &mode_label) -> bool {
+            auto within_turn_limit = [&](float angle) {
+                return std::abs(angle) <= max_turn;
+            };
             if (far_sequence_) {
-                if (haveScan_far_) {
+                if (haveScan_far_ && within_turn_limit(bestAngle_far_)) {
                     angle_out = bestAngle_far_;
                     mode_label = "wide";
                     return true;
                 }
-                if (haveScan_close_) {
+                if (haveScan_close_ && within_turn_limit(bestAngle_close_)) {
                     angle_out = bestAngle_close_;
                     mode_label = "narrow (fallback)";
                     return true;
                 }
             } else {
-                if (haveScan_close_) {
+                if (haveScan_close_ && within_turn_limit(bestAngle_close_)) {
                     angle_out = bestAngle_close_;
                     mode_label = "narrow";
                     return true;
                 }
-                if (haveScan_far_) {
+                if (haveScan_far_ && within_turn_limit(bestAngle_far_)) {
                     angle_out = bestAngle_far_;
                     mode_label = "wide (fallback)";
                     return true;
@@ -599,12 +614,12 @@ private:
         }
 
         // Priority 3: if obstacle to the left or right, start a 15 deg turn away from obstacle
-        else if (!any_bumper_pressed && (min_left_dist_ < 0.25 || min_right_dist_ < 0.25)) {
+        else if (!any_bumper_pressed && (min_left_dist_ < 0.2 || min_right_dist_ < 0.2)) {
             // Capture starting yaw (heading)
             start_yaw_ = yaw_;
 
             // If obstacle to the left within 0.4m, turn right 15deg
-            if (min_left_dist_ < 0.25) {
+            if (min_left_dist_ < 0.2) {
                 target_rotation_ = deg2rad(-15.0); // right turn
             } 
             
@@ -620,7 +635,7 @@ private:
         }
 
         // Priority 4: if obstacle in front, decide which way to go based on lidar data (skewed to right)
-        else if (!any_bumper_pressed && min_front_dist_ < 0.4) {
+        else if (!any_bumper_pressed && min_front_dist_ < 0.3) {
             // Capture starting yaw (heading)
             start_yaw_ = yaw_;
 
@@ -646,9 +661,9 @@ private:
         }
 
         // Priority 5: move forward if clear (slow down when near walls)
-        else if (!any_bumper_pressed && min_front_dist_ >= 0.4) {
+        else if (!any_bumper_pressed && min_front_dist_ >= 0.3) {
             angular_ = 0.0;
-            if (min_front_dist_ <= 0.5 || min_left_dist_ <= 0.5 || min_right_dist_ <= 0.5) {
+            if (min_front_dist_ <= 0.4 || min_left_dist_ <= 0.4 || min_right_dist_ <= 0.4) {
                 linear_ = 0.1;
             } else {
                 linear_ = 0.25;
@@ -692,7 +707,9 @@ private:
     float min_left_dist_;
     float min_right_dist_;
     std::vector<float> laserRange_; 
-    std::vector<float> closeFar_;
+    std::vector<float> wideSpace_;
+    std::vector<float> narrowSpace_;
+
     float bestAngle_far_;
     float bestClearance_far_;
     bool haveScan_far_;
