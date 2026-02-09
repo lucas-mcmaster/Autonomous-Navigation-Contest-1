@@ -4,7 +4,6 @@
 #include <map>
 #include <vector>
 #include <algorithm>
-#include <limits>
 
 #include "rclcpp/rclcpp.hpp"
 #include "geometry_msgs/msg/twist_stamped.hpp"
@@ -14,16 +13,25 @@
 #include "tf2/utils.h"
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
+// TURTLE BOT COMMANDS: GAZEBO: ros2 launch turtlebot4_gz_bringup turtlebot4_gz.launch.py model:=lite
 
-//If front bumper gets hit limit the open space choice to be the back half (in the case the obstacle cannot be detected using LiDar)
-//For wide sequence implemenmt minrange index
+using namespace std::chrono_literals;
+
 //Utility functions for conversions 
 inline double rad2deg(double rad){
     return rad *180.0/M_PI;
 }
+
 inline double deg2rad(double deg){
     return deg* M_PI/180.0;
 }
+
+// Compile-time constants
+constexpr float FRONT_ANGLE = -M_PI / 2.0f;
+constexpr float LEFT_ANGLE  =  0.0f;
+constexpr float RIGHT_ANGLE = -M_PI;
+constexpr float FOV_HALF_WIDTH = 20.0f * M_PI / 180.0f;
+
 //Func to convert range array to [far,close....etc]
 //Modifies the array in place (void return)
 //edge case: invalid ranges 
@@ -42,8 +50,9 @@ void classifyRanges (const std::vector<float>& input_ranges, std::vector<float>&
        else{
         output_flags[i] = 0.00; //close
        }
+    }
 }
-}
+
 
 //function to return the midpoint index of the longest sequence of far ranges
 //edge cases to address: multiple long sequences of the same length
@@ -73,20 +82,18 @@ int midSequenceFar (const std::vector<float>& sequence, int size){
     if(!longest){
         return -1;
     }
-    else{
+    else {
         double mid = static_cast<double>(last_index) - (static_cast<double>(longest) - 1.0) / 2.0;
         int mid_index = static_cast<int>(std::lround(mid));
         return mid_index;
     }
 }
+
+
 //return the center of the narrowest space of far range 
 //Need to check that it is wide enough for the body of the turtlebot
 //Turtlebot Body is 0.4 m wide 
 int midSequenceClose (const std::vector<float>& sequence, int size, const float threshold, const float angle_increment){
-    //check valid function parameters
-    if (!std::isfinite(threshold) || threshold <= 0.0f || angle_increment <= 0.0f) {
-        return -1;
-    }
     //minimum theta value for arc length > bot width 
 
     float angle_range = 0.5/threshold;
@@ -119,6 +126,7 @@ int midSequenceClose (const std::vector<float>& sequence, int size, const float 
     return best_mid;
 }
 
+
 //function to return the maximum range found from laser scan 
 float maxRange(const std::vector<float>& ranges) {
   float max_r = 0.0f;
@@ -130,14 +138,15 @@ float maxRange(const std::vector<float>& ranges) {
   return max_r;
 }
 
+
 //given the middle index find the lowest range surrounding it 
 float minRangeFromIndex(const std::vector<float>& ranges, const int mid_index) {
   // check all the parameters passed in are correct
   if (ranges.empty() || mid_index < 0 || mid_index >= static_cast<int>(ranges.size())) {
     return std::numeric_limits<float>::quiet_NaN();
   }
-  int start = std::max(0, mid_index - 10);
-  int end = std::min(static_cast<int>(ranges.size()) - 1, mid_index + 10);
+  int start = std::max(0, mid_index - 5);
+  int end = std::min(static_cast<int>(ranges.size()) - 1, mid_index + 5);
   float min_r = std::numeric_limits<float>::infinity();
   bool saw_finite = false;
   bool saw_nan = false;
@@ -164,23 +173,23 @@ float minRangeFromIndex(const std::vector<float>& ranges, const int mid_index) {
 }
 
 
-
-//Given an index from laser scan, returns yaw with repsect to front of robot
+//Given an index from laser scan, returns yaw with respect to front of robot
 float LasertoFrontTF(const int mid_index, const float increment){
     float angle = rad2deg(increment*mid_index);
     if (angle <= 90){
         angle -= 90; 
     }
-    else if (angle <= 270){
+    else if(angle <= 270){
         angle -= 90;
     }
-    else {
+    else{
         angle -= 450;
     }
 
     return deg2rad(angle);
-     
 }
+
+
 //Given an angle from [0,2pi], normalize to [-pi,pi]
 //Since odom angle measurement is [-pi,pi]
 float NormAngle(float angle){
@@ -193,35 +202,28 @@ float NormAngle(float angle){
     return angle;
 }
 
-//wallhug algorithm
-/*
-The way to implement the wall hug is to use the side with minimum laser distance, shift 90 degrees from that side and move straight unril bump front
-once bump front turn to face the direction of the most open space */
-using namespace std::chrono_literals;
 
-//function 
 class Contest1Node : public rclcpp::Node
 {
 public:
     Contest1Node()
         : Node("contest1_node")
+
     {
         // Initialize publisher for velocity commands
-        //Creates a publisher object, "cmd_vel" topic, message type TwistStamped
-        //msg to send linear and angular velocities 
         vel_pub_ = this->create_publisher<geometry_msgs::msg::TwistStamped>("/cmd_vel", 10);
-        
-        //creates a subscriber object to scan topic, message type is Laser scan 
+
+        // LiDAR scan subscriber
         laser_sub_ = this->create_subscription<sensor_msgs::msg::LaserScan>(
             "/scan", rclcpp::SensorDataQoS(),
             std::bind(&Contest1Node::laserCallback, this, std::placeholders::_1));
-        
-        //creates a subscriber to hazard_detection topic, things like bumps, stall and so on 
+
+        // Bumper hazard detection subscriber
         hazard_sub_ = this->create_subscription<irobot_create_msgs::msg::HazardDetectionVector>(
             "/hazard_detection", rclcpp::SensorDataQoS(),
             std::bind(&Contest1Node::hazardCallback, this, std::placeholders::_1));
-        
-        //subscribes to odom topic, receives odometry messages 
+
+        // Turtlebot odometry subscriber
         odom_sub_ = this->create_subscription<nav_msgs::msg::Odometry>(
             "/odom", rclcpp::SensorDataQoS(),
             std::bind(&Contest1Node::odomCallback, this, std::placeholders::_1));
@@ -230,33 +232,14 @@ public:
         timer_ = this->create_wall_timer(
             100ms, std::bind(&Contest1Node::controlLoop, this));
 
-        // Initialize variables
+
+        // Initialize general timer and movement variables
         start_time_ = this->now();
         angular_ = 0.0;
         linear_ = 0.0;
-        
-        //initialize odom 
-        pos_x_ = 0.0;
-        pos_y_ = 0.0;
-        yaw_ = 0.0;
-
-        //Initialize bumper states 
-        bumpers_["bump_front_left"] = false;
-        bumpers_["bump_front_center"] = false;
-        bumpers_["bump_front_right"] = false;
-        bumpers_["bump_left"] = false;
-        bumpers_["bump_right"] = false;
-
-        //initialize laser variable 
-        minLaserDist_ = std::numeric_limits<float>::infinity();
-        nLasers_ = 0;
-        desiredNLasers_ = 0;
-        desiredAngle_ = 5;
-        bestAngle_= 0.0;
-        bestClearance_ = 0.0;
-        haveScan_ = false;
-
-        // movement state initialization 
+        pos_x_=0.0;
+        pos_y_=0.0;
+        yaw_= 0.0;
         start_yaw_ = 0.0;
         start_pos_x_ = 0.0;
         start_pos_y_ = 0.0;
@@ -264,105 +247,205 @@ public:
         target_move_ = 0.0;
         turning_ = false;
         moving_ = false;
-        backing_ = false;
+
+        // Initialize LiDAR variables for navigation
+        nLasers_ = 0;
+        bestAngle_far_ = 0.0;
+        bestClearance_far_ = 0.0;
+        haveScan_far_ = false;
+        bestAngle_close_ = 0.0;
+        bestClearance_close_ = 0.0;
+        haveScan_close_ = false;
+
+        // Initialize LiDAR variables for obstacle avoidance
+        min_front_dist_ = std::numeric_limits<float>::infinity();
+        min_left_dist_  = std::numeric_limits<float>::infinity();
+        min_right_dist_ = std::numeric_limits<float>::infinity();
         
-        //initialize Sequence
+        // Initialize Sequence
         far_sequence_ = true;
         midpoint_ = -1;
+        turn_count_ = 0;
 
+        // Initialize bumper states
+        bumpers_["bump_front_left"]=false;
+        bumpers_["bump_front_center"]=false;
+        bumpers_["bump_front_right"]=false;
+        bumpers_["bump_left"]=false;
+        bumpers_["bump_right"]=false;
+        
+        // Log start message
         RCLCPP_INFO(this->get_logger(), "Contest 1 node initialized. Running for 480 seconds.");
     }
 
+
 private:
+    // Helper function to calculate minimum distance within a field-of-view of the LIDAR
+    void computeMinFOVDist(
+        const sensor_msgs::msg::LaserScan::SharedPtr &scan,
+        uint32_t center_idx,
+        uint32_t fov_half_beams,
+        float &min_dist_out)
+    {
+        // Set starting min dist to high value to be overwritten on first iteration
+        min_dist_out = std::numeric_limits<float>::infinity();
+
+        // Start and end indices for FOV
+        int start = std::max<int>(0, center_idx - fov_half_beams);
+        int end   = std::min<int>(
+            scan->ranges.size() - 1,
+            center_idx + fov_half_beams);
+
+        // Loop through beam indices for FOV
+        for (int i = start; i <= end; ++i)
+        {
+            // Get current beam distance
+            float r = scan->ranges[i];
+
+            if (std::isfinite(r))
+            {
+                // Compare to current min dist and use 0.15 threshold to avoid fixed structural obstacles on robot
+                if (r < min_dist_out && r >= 0.15)
+                {
+                    // Overwrite min dist if the current beam has a smaller dist
+                    min_dist_out = r;
+                }
+            }
+        }
+    }
+
+    void computeBestFromMidpoint(
+        int midpoint,
+        const sensor_msgs::msg::LaserScan::SharedPtr &scan,
+        float &angle_out,
+        float &clearance_out,
+        bool &have_out)
+    {
+        if (midpoint < 0 || midpoint >= static_cast<int>(scan->ranges.size())) {
+            have_out = false;
+            return;
+        }
+
+        angle_out = LasertoFrontTF(midpoint, scan->angle_increment);
+        clearance_out = minRangeFromIndex(laserRange_, midpoint);
+
+        if (std::isnan(clearance_out) || clearance_out <= 0.0f) {
+            have_out = false;
+            return;
+        }
+        if (std::isinf(clearance_out)) {
+            clearance_out = scan->range_max;
+        }
+        if (!std::isfinite(clearance_out) || clearance_out <= 0.0f) {
+            have_out = false;
+            return;
+        }
+
+        have_out = true;
+    }
+
     void laserCallback(const sensor_msgs::msg::LaserScan::SharedPtr scan)
     {
 
         //determine number of lasers
         nLasers_= static_cast<int32_t>((scan->angle_max - scan->angle_min)/scan->angle_increment);
-        
 
+        // 1. OBSTACLE AVOIDANCE LASER CALLBACK SECTION:
+
+        // Number of laser beams in each FOV (all FOVs equal in angular size)
+        uint32_t fov_half_beams = FOV_HALF_WIDTH / scan->angle_increment;
+
+        //RCLCPP_INFO(this->get_logger(), "Size of laser scan array: %d, and size of offset %d", nLasers_, desiredNLasers_);
+
+        // Array indices for each FOV
+        uint32_t front_idx = (FRONT_ANGLE - scan->angle_min) / scan->angle_increment;
+        uint32_t left_idx  = (LEFT_ANGLE  - scan->angle_min) / scan->angle_increment;
+        uint32_t right_idx = (RIGHT_ANGLE - scan->angle_min) / scan->angle_increment;
+
+        // Calculate minimum distance for each LIDAR FOV (front, left, right)
+        computeMinFOVDist(scan, front_idx, fov_half_beams, min_front_dist_);
+        computeMinFOVDist(scan, left_idx, fov_half_beams, min_left_dist_);
+        computeMinFOVDist(scan, right_idx, fov_half_beams, min_right_dist_);
+        
+        // 2. NAVIGATION LASER CALLBACK SECTION:
         laserRange_ = scan->ranges;
-        //Threshold based on maximum laser distance
-        float threshold = 0.8f * maxRange(laserRange_); //Play around
-        if (!std::isfinite(threshold) || threshold <= 0.0f) {
-            threshold = scan->range_max;
-        }
-        if (!std::isfinite(threshold) || threshold <= 0.0f) {
-            threshold = 1.0f;
-        }
-             
-        closeFar_.resize(laserRange_.size());
 
-        classifyRanges(laserRange_, closeFar_, laserRange_.size(), threshold);
+        //Threshold for most wide space based on maximum laser distance
+        float threshold_wide = 0.7f * maxRange(laserRange_); //Play around
+        if (!std::isfinite(threshold_wide) || threshold_wide <= 0.0f) {
+            threshold_wide = scan->range_max;
+        }
+        if (!std::isfinite(threshold_wide) || threshold_wide <= 0.0f) {
+            threshold_wide = 1.0f;
+        }
         
-        if (far_sequence_){
-            midpoint_ = midSequenceFar(closeFar_, laserRange_.size());
-            // RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 2000, "Choosing most wide open space");
+        //Threshold for most narrow space based on maximum laser distance
+        float threshold_narrow = 0.5f * maxRange(laserRange_); //Play around
+        if (!std::isfinite(threshold_narrow) || threshold_narrow <= 0.0f) {
+            threshold_narrow = scan->range_max;
         }
-        else{
-            midpoint_ = midSequenceClose(closeFar_, laserRange_.size(), threshold, scan->angle_increment);
-            // RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 2000, "Choosing most narrow open space");
-
+        if (!std::isfinite(threshold_narrow) || threshold_narrow <= 0.0f) {
+            threshold_narrow = 1.0f;
         }
 
-        if (midpoint_ == -1) {
-            //RCLCPP_INFO(this->get_logger(), "No open space found");
-            //implement failsafe code 
-            haveScan_ = false;
-        }   
-        else{
-            bestAngle_ = LasertoFrontTF(midpoint_, scan->angle_increment);
-           //bestClearance_ = (std::isinf(laserRange_[midpoint_]))? 12.0: laserRange_[midpoint_];
-            bestClearance_ = minRangeFromIndex(laserRange_, midpoint_);
-            if (std::isnan(bestClearance_) || bestClearance_ <= 0.0f) {
-                haveScan_ = false;
-                return;
-            }
-            if (std::isinf(bestClearance_)) {
-                bestClearance_ = scan->range_max;
-            }
-            if (!std::isfinite(bestClearance_) || bestClearance_ <= 0.0f) {
-                haveScan_ = false;
-                return;
-            }
-            haveScan_ = true;
-            // RCLCPP_INFO(this->get_logger(), "Angle of most open space: %f, Range of space: %f", rad2deg(bestAngle_), bestClearance_);
+             
+        wideSpace_.resize(laserRange_.size());
+        narrowSpace_.resize(laserRange_.size());
+
+
+        classifyRanges(laserRange_, wideSpace_, laserRange_.size(), threshold_wide);
+        classifyRanges(laserRange_, narrowSpace_, laserRange_.size(), threshold_narrow);
+
+        
+        int midpoint_far = midSequenceFar(wideSpace_, laserRange_.size());
+        int midpoint_close = midSequenceClose(narrowSpace_, laserRange_.size(), threshold_narrow, scan->angle_increment);
+
+        computeBestFromMidpoint(midpoint_far, scan, bestAngle_far_, bestClearance_far_, haveScan_far_);
+        computeBestFromMidpoint(midpoint_close, scan, bestAngle_close_, bestClearance_close_, haveScan_close_);
+
+        if (haveScan_far_) {
+            RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 2000,
+                                 "Far space: angle %f deg, range %f",
+                                 rad2deg(bestAngle_far_), bestClearance_far_);
+        }
+        if (haveScan_close_) {
+            RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 2000,
+                                 "Narrow space: angle %f deg, range %f",
+                                 rad2deg(bestAngle_close_), bestClearance_close_);
         }
 
     }
+
 
     void odomCallback(const nav_msgs::msg::Odometry::SharedPtr odom)
     {
-        // extract position from Odom message
-        // x and y are the only valuable positons, rover does not move in the z direction
-
-        // 
-        pos_x_ = odom->pose.pose.position.x;
+        //Extracting pos
+        pos_x_= odom->pose.pose.position.x;
         pos_y_ = odom->pose.pose.position.y;
-        yaw_ = tf2::getYaw(odom->pose.pose.orientation); //in rad
 
-        //RCLCPP_INFO(this->get_logger(), "Position: (%.2f,%.2f), Orientation %.2frad, %.2fdeg", pos_x_, pos_y_, yaw_, rad2deg(yaw_));
+        yaw_ = tf2::getYaw(odom->pose.pose.orientation);
+
+        //RCLCPP_INFO(this->get_logger(), "Position: (%.2f, %.2f), Orientation: %f rad or %f deg", pos_x_, pos_y_, yaw_, rad2deg(yaw_));
     }
 
-    /*Each time I get a hazard message, I look at all the hazards.
-    If I see a left bumper hazard, I mark left bumper as pressed.
-    If I see a right bumper hazard, I mark right bumper as pressed.*/
+
     void hazardCallback(const irobot_create_msgs::msg::HazardDetectionVector::SharedPtr hazard_vector)
     {
-        for(auto& [key, val]: bumpers_){ //iterating through every key and val of bumper 
-            val = false; //to reset all states back to false 
+        //reset all bumpers to released state
+        for (auto& [key, val] : bumpers_) {
+            val=false;
         }
 
-        for(const auto& detection : hazard_vector->detections){ //detections contains detection objects,  
-
-            if(detection.type == irobot_create_msgs::msg::HazardDetection::BUMP){
+        //update bumper states based on current detections
+        for (const auto& detection : hazard_vector->detections) {
+            if (detection.type == irobot_create_msgs::msg::HazardDetection::BUMP) {
                 bumpers_[detection.header.frame_id] = true;
-                //general check for any bumper
-                RCLCPP_INFO(this->get_logger(), "Bumper pressed: %s", detection.header.frame_id.c_str());
+                RCLCPP_INFO(this->get_logger(), "Bumper pressed %s", detection.header.frame_id.c_str());
             }
         }
     }
 
+    // Main control loop
     void controlLoop()
     {
         // Calculate elapsed time
@@ -385,136 +468,212 @@ private:
             return;
         }
 
-        //exploration + movement logic 
+        // EXPLORATION CODE BEGINS HERE:
 
-        // Check if any bumper pressed (reactive)
-        bool any_bumper_pressed = false;
+        // Check for any pressed bumpers and set the state accordingly
+        bool any_bumper_pressed=false;
         for (const auto& [key, val] : bumpers_) {
-            if (val) { any_bumper_pressed = true; break; }
+            if (val) {
+                any_bumper_pressed = true;
+                break;
+            }
         }
 
-        // Priority 0: bumper preempts EVERYTHING: stop, cancel turn/move, back up 0.15m
-        if (any_bumper_pressed && !backing_) {
-            // immediate stop
-            angular_ = 0.0;
-            linear_ = 0.0;
+        auto choose_turn_angle = [&](float &angle_out, const char* &mode_label) -> bool {
+            if (far_sequence_) {
+                if (haveScan_far_) {
+                    angle_out = bestAngle_far_;
+                    mode_label = "wide";
+                    return true;
+                }
+                if (haveScan_close_) {
+                    angle_out = bestAngle_close_;
+                    mode_label = "narrow (fallback)";
+                    return true;
+                }
+            } else {
+                if (haveScan_close_) {
+                    angle_out = bestAngle_close_;
+                    mode_label = "narrow";
+                    return true;
+                }
+                if (haveScan_far_) {
+                    angle_out = bestAngle_far_;
+                    mode_label = "wide (fallback)";
+                    return true;
+                }
+            }
+            return false;
+        };
 
-            // cancel current actions
-            turning_ = false;
-            moving_ = false;
+        auto log_turn_choice_state = [&](const char* context) {
+            RCLCPP_INFO(this->get_logger(),
+                        "[%s] turn_count=%d far_sequence=%s | far(have=%s, angle=%.2f, range=%.2f) "
+                        "close(have=%s, angle=%.2f, range=%.2f)",
+                        context,
+                        turn_count_,
+                        far_sequence_ ? "true" : "false",
+                        haveScan_far_ ? "true" : "false",
+                        rad2deg(bestAngle_far_),
+                        bestClearance_far_,
+                        haveScan_close_ ? "true" : "false",
+                        rad2deg(bestAngle_close_),
+                        bestClearance_close_);
+        };
 
-            // start backing up
+        // Log position, orientation, and min laser distances
+        RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 2000, "Position: (%.2f, %.2f), Orientation: %f rad or %f deg, Minimum laser distance in front, left, and right: (%.2f, %.2f, %.2f)", pos_x_, pos_y_, yaw_, rad2deg(yaw_), min_front_dist_, min_left_dist_, min_right_dist_);
+        
+        // Priority 1a: finish any in-progress backing-up from bumper hit
+        if (moving_) {
+            // Check how much distance robot has moved
+            double distance_moved = std::sqrt(
+                std::pow(pos_x_ - start_pos_x_, 2) +
+                std::pow(pos_y_ - start_pos_y_, 2)
+            );
+
+            // Obtain target distance to move
+            double target_distance = std::abs(target_move_);
+
+            if (distance_moved < target_distance) {
+                // Continue moving until robot hits target distance
+                linear_ = (target_move_ > 0.0) ? 0.1 : -0.1; //CHANGED TO 0.1 BECAUSE IF YOU BUMPED YOU ARE CLOSE TO WALL
+                angular_ = 0.0;
+                RCLCPP_INFO(this->get_logger(), "Moving: %.3f / %.3f m",
+                            distance_moved,
+                            target_distance);
+            } else {
+                // Reached target distance, rotate 90deg and then keep moving
+                RCLCPP_INFO(this->get_logger(), "Reached 0.15m backup, start turning");
+                moving_ = false;
+
+                // Capture starting yaw to compare against current yaw
+                start_yaw_ = yaw_;
+
+                // Update turn cycle before choosing
+                turn_count_++;
+                far_sequence_ = (turn_count_ % 5 == 1);
+                log_turn_choice_state("post-backup");
+                float chosen_angle = 0.0f;
+                const char* mode_label = "unknown";
+                if (!choose_turn_angle(chosen_angle, mode_label)) {
+                    RCLCPP_WARN(this->get_logger(), "No valid scan to choose turn angle");
+                    return;
+                }
+                RCLCPP_INFO(this->get_logger(), "Choosing most %s space for rotation", mode_label);
+                target_rotation_ = chosen_angle;
+
+                // Start turning sequence
+                turning_ = true;
+                linear_ = 0.0;
+                angular_ = (target_rotation_ > 0.0) ? 1.0 : -1.0;
+
+                // turn_count_ already updated before choosing
+            }
+        }
+
+        // Priority 1b: finish any in-progress 15 or 90 deg turn
+        else if (turning_) {
+            // Check how much the robot has rotated
+            double angle_rotated = NormAngle(yaw_ - start_yaw_);
+
+            // Compare amount rotated to target rotation, if less, keep rotating
+            if (std::abs(angle_rotated) < std::abs(target_rotation_)) {
+                linear_ = 0.0;
+                angular_ = (target_rotation_ > 0.0) ? 1.0 : -1.0;
+                RCLCPP_INFO(this->get_logger(), "Rotating: %.3f / %.3f degrees",
+                            rad2deg(std::abs(angle_rotated)),
+                            rad2deg(std::abs(target_rotation_)));
+            } else {
+                // Reached target rotation, start moving forward again
+                turning_ = false;
+                linear_ = 0.25;
+                angular_ = 0.0;
+            }
+        }
+
+        // Priority 2: if bumper hit, back up 0.15 m
+        else if (any_bumper_pressed) {
+            // Record starting position
             start_pos_x_ = pos_x_;
             start_pos_y_ = pos_y_;
-            target_move_ = -0.15;
-            backing_ = true;
 
-            // command reverse
-            linear_ = -0.1; //navigate at a speed of 0.1m/s when close to a wall
+            // Set target moving distance
+            target_move_ = -0.15;
+
+            // Start backwards movement
+            moving_ = true;
+            turning_ = false;
+            linear_ = (target_move_ > 0.0) ? 0.1 : -0.1; //Changed from 0.25 to 0.1 as if you hit bumper you must be close to wall
             angular_ = 0.0;
         }
 
-        // If backing up is in progress, continue until 0.15m is reached
-        // Need to implement a way to make sure backing does not cause a bump
-        else if (backing_) {
-            double distance_moved = std::sqrt(
-                std::pow(pos_x_ - start_pos_x_, 2) +
-                std::pow(pos_y_ - start_pos_y_, 2)
-            );
+        // Priority 3: if obstacle to the left or right, start a 15 deg turn away from obstacle
+        else if (!any_bumper_pressed && (min_left_dist_ < 0.25 || min_right_dist_ < 0.25)) {
+            // Capture starting yaw (heading)
+            start_yaw_ = yaw_;
 
-            if (distance_moved < std::abs(target_move_)) {
-                linear_ = -0.1;
-                angular_ = 0.0;
-            } else {
-                // stop backing
-                backing_ = false;
-                linear_ = 0.0;
-                angular_ = 0.0;
+            // If obstacle to the left within 0.4m, turn right 15deg
+            if (min_left_dist_ < 0.25) {
+                target_rotation_ = deg2rad(-15.0); // right turn
+            } 
+            
+            // If obstacle to the right within 0.4m, turn left 15deg
+            else {
+                target_rotation_ = deg2rad(15.0);  // left turn
             }
+
+            // Start turning sequence
+            turning_ = true;
+            linear_ = 0.0;
+            angular_ = (target_rotation_ > 0.0) ? 1.0 : -1.0;
         }
 
-        // Finish turning in progress
-        else if (turning_) {
-            // how much rotated since start of turn
-            double angle_rotated = NormAngle(yaw_ - start_yaw_);
-            double tol = deg2rad(2.0); // small tolerance
+        // Priority 4: if obstacle in front, decide which way to go based on lidar data (skewed to right)
+        else if (!any_bumper_pressed && min_front_dist_ < 0.4) {
+            // Capture starting yaw (heading)
+            start_yaw_ = yaw_;
 
-            if (std::abs(angle_rotated) + tol < std::abs(target_rotation_)) {
-                linear_ = 0.0;
-                angular_ = (target_rotation_ > 0.0) ? 1.0 : -1.0;
+            // Update turn cycle before choosing
+            turn_count_++;
+            far_sequence_ = (turn_count_ % 5 == 1);
+            log_turn_choice_state("front-obstacle");
+            float chosen_angle = 0.0f;
+            const char* mode_label = "unknown";
+            if (!choose_turn_angle(chosen_angle, mode_label)) {
+                RCLCPP_WARN(this->get_logger(), "No valid scan to choose turn angle");
+                return;
+            }
+            RCLCPP_INFO(this->get_logger(), "Choosing most %s space for rotation", mode_label);
+            target_rotation_ = chosen_angle;
+
+            // Start turning sequence
+            turning_ = true;
+            linear_ = 0.0;
+            angular_ = (target_rotation_ > 0.0) ? 1.0 : -1.0;
+
+            // turn_count_ already updated before choosing
+        }
+
+        // Priority 5: move forward if clear (slow down when near walls)
+        else if (!any_bumper_pressed && min_front_dist_ >= 0.4) {
+            angular_ = 0.0;
+            if (min_front_dist_ <= 0.5 || min_left_dist_ <= 0.5 || min_right_dist_ <= 0.5) {
+                linear_ = 0.1;
             } else {
-                // turn complete: start moving
-                turning_ = false;
-
-                start_pos_x_ = pos_x_;
-                start_pos_y_ = pos_y_;
-
-                // move 0.9 * bestClearance_ (captured at plan time)
-                moving_ = true;
-
                 linear_ = 0.25;
-                angular_ = 0.0;
             }
         }
 
-        // Finish moving in progress
-        else if (moving_) {
-            double distance_moved = std::sqrt(
-                std::pow(pos_x_ - start_pos_x_, 2) +
-                std::pow(pos_y_ - start_pos_y_, 2)
-            );
-
-            if (distance_moved < std::abs(target_move_)) {
-                linear_ = 0.25;
-                angular_ = 0.0;
-            } else {
-                // move complete
-                moving_ = false;
-                linear_ = 0.0;
-                angular_ = 0.0;
-            }
-        }
-
-        // plan a new “turn then move” segment
+        // Fallback for errors: stop moving robot
         else {
-            if (!haveScan_) {
-                // no scan yet -> stop
-                linear_ = 0.0;
-                angular_ = 0.0;
-
-                //Implement failsafe code
-            } else {
-                // Plan the next segment:
-                // 1) turn to bestAngle_
-                // 2) move forward 0.9*bestClearance_
-                if(far_sequence_){
-                    RCLCPP_INFO(this->get_logger(), "Looking for most wide open space");
-                }
-                else{
-                    RCLCPP_INFO(this->get_logger(), "Looking for most narrow open space");
-                }
-
-                start_yaw_ = yaw_;
-                target_rotation_ = bestAngle_;
-
-                // Capture distance so it doesn't change mid-move
-                target_move_ = 0.75 * bestClearance_; //Play Around
-                if (!std::isfinite(target_move_) || target_move_ < 0.0) {
-                    target_move_ = 0.0;
-                }
-
-                turning_ = true;
-                moving_ = false;
-
-                linear_ = 0.0;
-                angular_ = (target_rotation_ > 0.0) ? 1.0 : -1.0;
-
-                // alternate planning mode on each executed segment
-                far_sequence_ = !far_sequence_;
-                
-            }
+            angular_ = 0.0;
+            linear_ = 0.0;
+            RCLCPP_INFO(this->get_logger(), "Else statement shutdown activated\n\n\n\n");
+            rclcpp::shutdown();
+            return;
         }
-
+        
         // Set velocity command
         geometry_msgs::msg::TwistStamped vel;
         vel.header.stamp = this->now();
@@ -532,27 +691,26 @@ private:
     rclcpp::TimerBase::SharedPtr timer_;
 
     rclcpp::Time start_time_;
-    //Initializing member variables to be accessible for both call backs and control loop
     float angular_;
     float linear_;
-    //Odom
     double pos_x_;
     double pos_y_;
     double yaw_;
-    //Hazard
-    std::map<std::string, bool> bumpers_; //create a dictionary, key --> strings, values --> Boolean
-    //Laser
-    float minLaserDist_;
-    int32_t nLasers_; //how many lasers there are
-    int32_t desiredNLasers_; //desired index or specific laser
-    int32_t desiredAngle_; //desired Yaw angle
+    std::map<std::string, bool>bumpers_;
+    uint32_t nLasers_;
+    float min_front_dist_;
+    float min_left_dist_;
+    float min_right_dist_;
     std::vector<float> laserRange_; 
-    std::vector<float> closeFar_;
-    float bestAngle_;
-    float bestClearance_;
-    bool haveScan_;
+    std::vector<float> wideSpace_;
+    std::vector<float> narrowSpace_;
 
-    // movement state 
+    float bestAngle_far_;
+    float bestClearance_far_;
+    bool haveScan_far_;
+    float bestAngle_close_;
+    float bestClearance_close_;
+    bool haveScan_close_;
     double start_yaw_;
     double start_pos_x_;
     double start_pos_y_;
@@ -560,15 +718,9 @@ private:
     double target_move_;
     bool turning_;
     bool moving_;
-    bool backing_;
-    
-    //Robot dimensions
-    float bot_width_;
-    
-    //Sequence State 
     bool far_sequence_;
     int midpoint_;
-    
+    int turn_count_;
 };
 
 int main(int argc, char** argv)
