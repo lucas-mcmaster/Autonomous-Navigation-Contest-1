@@ -183,10 +183,10 @@ float LasertoFrontTF(const int mid_index, const float increment){
     if (angle <= 90){
         angle -= 90; 
     }
-    else if (angle <= 270){
+    else if(angle <= 270){
         angle -= 90;
     }
-    else {
+    else{
         angle -= 450;
     }
 
@@ -254,9 +254,12 @@ public:
 
         // Initialize LiDAR variables for navigation
         nLasers_ = 0;
-        bestAngle_= 0.0;
-        bestClearance_ = 0.0;
-        haveScan_ = false;
+        bestAngle_far_ = 0.0;
+        bestClearance_far_ = 0.0;
+        haveScan_far_ = false;
+        bestAngle_close_ = 0.0;
+        bestClearance_close_ = 0.0;
+        haveScan_close_ = false;
 
         // Initialize LiDAR variables for obstacle avoidance
         min_front_dist_ = std::numeric_limits<float>::infinity();
@@ -266,6 +269,7 @@ public:
         // Initialize Sequence
         far_sequence_ = true;
         midpoint_ = -1;
+        turn_count_ = 0;
 
         // Initialize bumper states
         bumpers_["bump_front_left"]=false;
@@ -314,6 +318,36 @@ private:
         }
     }
 
+    void computeBestFromMidpoint(
+        int midpoint,
+        const sensor_msgs::msg::LaserScan::SharedPtr &scan,
+        float &angle_out,
+        float &clearance_out,
+        bool &have_out)
+    {
+        if (midpoint < 0 || midpoint >= static_cast<int>(scan->ranges.size())) {
+            have_out = false;
+            return;
+        }
+
+        angle_out = LasertoFrontTF(midpoint, scan->angle_increment);
+        clearance_out = minRangeFromIndex(laserRange_, midpoint);
+
+        if (std::isnan(clearance_out) || clearance_out <= 0.0f) {
+            have_out = false;
+            return;
+        }
+        if (std::isinf(clearance_out)) {
+            clearance_out = scan->range_max;
+        }
+        if (!std::isfinite(clearance_out) || clearance_out <= 0.0f) {
+            have_out = false;
+            return;
+        }
+
+        have_out = true;
+    }
+
     void laserCallback(const sensor_msgs::msg::LaserScan::SharedPtr scan)
     {
 
@@ -353,38 +387,21 @@ private:
 
         classifyRanges(laserRange_, closeFar_, laserRange_.size(), threshold);
         
-        if (far_sequence_){
-            midpoint_ = midSequenceFar(closeFar_, laserRange_.size());
-            RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 2000, "Choosing most wide open space");
-        }
-        else {
-            midpoint_ = midSequenceClose(closeFar_, laserRange_.size(), threshold, scan->angle_increment);
-            RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 2000, "Choosing most narrow open space");
+        int midpoint_far = midSequenceFar(closeFar_, laserRange_.size());
+        int midpoint_close = midSequenceClose(closeFar_, laserRange_.size(), threshold, scan->angle_increment);
 
-        }
+        computeBestFromMidpoint(midpoint_far, scan, bestAngle_far_, bestClearance_far_, haveScan_far_);
+        computeBestFromMidpoint(midpoint_close, scan, bestAngle_close_, bestClearance_close_, haveScan_close_);
 
-        if (midpoint_ == -1) {
-            //RCLCPP_INFO(this->get_logger(), "No open space found");
-            //implement failsafe code 
-            haveScan_ = false;
-        }   
-        else {
-            bestAngle_ = LasertoFrontTF(midpoint_, scan->angle_increment);
-           //bestClearance_ = (std::isinf(laserRange_[midpoint_]))? 12.0: laserRange_[midpoint_];
-            bestClearance_ = minRangeFromIndex(laserRange_, midpoint_);
-            if (std::isnan(bestClearance_) || bestClearance_ <= 0.0f) {
-                haveScan_ = false;
-                return;
-            }
-            if (std::isinf(bestClearance_)) {
-                bestClearance_ = scan->range_max;
-            }
-            if (!std::isfinite(bestClearance_) || bestClearance_ <= 0.0f) {
-                haveScan_ = false;
-                return;
-            }
-            haveScan_ = true;
-            RCLCPP_INFO(this->get_logger(), "Angle of most open space: %f, Range of space: %f", rad2deg(bestAngle_), bestClearance_);
+        if (haveScan_far_) {
+            RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 2000,
+                                 "Far space: angle %f deg, range %f",
+                                 rad2deg(bestAngle_far_), bestClearance_far_);
+        }
+        if (haveScan_close_) {
+            RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 2000,
+                                 "Narrow space: angle %f deg, range %f",
+                                 rad2deg(bestAngle_close_), bestClearance_close_);
         }
 
     }
@@ -452,8 +469,50 @@ private:
             }
         }
 
+        auto choose_turn_angle = [&](float &angle_out, const char* &mode_label) -> bool {
+            if (far_sequence_) {
+                if (haveScan_far_) {
+                    angle_out = bestAngle_far_;
+                    mode_label = "wide";
+                    return true;
+                }
+                if (haveScan_close_) {
+                    angle_out = bestAngle_close_;
+                    mode_label = "narrow (fallback)";
+                    return true;
+                }
+            } else {
+                if (haveScan_close_) {
+                    angle_out = bestAngle_close_;
+                    mode_label = "narrow";
+                    return true;
+                }
+                if (haveScan_far_) {
+                    angle_out = bestAngle_far_;
+                    mode_label = "wide (fallback)";
+                    return true;
+                }
+            }
+            return false;
+        };
+
+        auto log_turn_choice_state = [&](const char* context) {
+            RCLCPP_INFO(this->get_logger(),
+                        "[%s] turn_count=%d far_sequence=%s | far(have=%s, angle=%.2f, range=%.2f) "
+                        "close(have=%s, angle=%.2f, range=%.2f)",
+                        context,
+                        turn_count_,
+                        far_sequence_ ? "true" : "false",
+                        haveScan_far_ ? "true" : "false",
+                        rad2deg(bestAngle_far_),
+                        bestClearance_far_,
+                        haveScan_close_ ? "true" : "false",
+                        rad2deg(bestAngle_close_),
+                        bestClearance_close_);
+        };
+
         // Log position, orientation, and min laser distances
-        RCLCPP_INFO(this->get_logger(), "Position: (%.2f, %.2f), Orientation: %f rad or %f deg, Minimum laser distance in front, left, and right: (%.2f, %.2f, %.2f)", pos_x_, pos_y_, yaw_, rad2deg(yaw_), min_front_dist_, min_left_dist_, min_right_dist_);
+        RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 2000, "Position: (%.2f, %.2f), Orientation: %f rad or %f deg, Minimum laser distance in front, left, and right: (%.2f, %.2f, %.2f)", pos_x_, pos_y_, yaw_, rad2deg(yaw_), min_front_dist_, min_left_dist_, min_right_dist_);
         
         // Priority 1a: finish any in-progress backing-up from bumper hit
         if (moving_) {
@@ -481,16 +540,25 @@ private:
                 // Capture starting yaw to compare against current yaw
                 start_yaw_ = yaw_;
 
-                // Rotate towards the best angle
-                target_rotation_ = bestAngle_;
+                // Update turn cycle before choosing
+                turn_count_++;
+                far_sequence_ = (turn_count_ % 5 == 1);
+                log_turn_choice_state("post-backup");
+                float chosen_angle = 0.0f;
+                const char* mode_label = "unknown";
+                if (!choose_turn_angle(chosen_angle, mode_label)) {
+                    RCLCPP_WARN(this->get_logger(), "No valid scan to choose turn angle");
+                    return;
+                }
+                RCLCPP_INFO(this->get_logger(), "Choosing most %s space for rotation", mode_label);
+                target_rotation_ = chosen_angle;
 
                 // Start turning sequence
                 turning_ = true;
                 linear_ = 0.0;
                 angular_ = (target_rotation_ > 0.0) ? 1.0 : -1.0;
 
-                // alternate planning mode on each executed segment
-                far_sequence_ = !far_sequence_;
+                // turn_count_ already updated before choosing
             }
         }
 
@@ -556,16 +624,25 @@ private:
             // Capture starting yaw (heading)
             start_yaw_ = yaw_;
 
-            // Rotate towards the best angle
-            target_rotation_ = bestAngle_;
+            // Update turn cycle before choosing
+            turn_count_++;
+            far_sequence_ = (turn_count_ % 5 == 1);
+            log_turn_choice_state("front-obstacle");
+            float chosen_angle = 0.0f;
+            const char* mode_label = "unknown";
+            if (!choose_turn_angle(chosen_angle, mode_label)) {
+                RCLCPP_WARN(this->get_logger(), "No valid scan to choose turn angle");
+                return;
+            }
+            RCLCPP_INFO(this->get_logger(), "Choosing most %s space for rotation", mode_label);
+            target_rotation_ = chosen_angle;
 
             // Start turning sequence
             turning_ = true;
             linear_ = 0.0;
             angular_ = (target_rotation_ > 0.0) ? 1.0 : -1.0;
 
-            // alternate planning mode on each executed segment
-            far_sequence_ = !far_sequence_;
+            // turn_count_ already updated before choosing
         }
 
         // Priority 5: move forward if clear (slow down when near walls)
@@ -573,7 +650,6 @@ private:
             angular_ = 0.0;
             if (min_front_dist_ <= 0.5 || min_left_dist_ <= 0.5 || min_right_dist_ <= 0.5) {
                 linear_ = 0.1;
-                RCLCPP_INFO(this->get_logger(), "\nSlow down activated\n");
             } else {
                 linear_ = 0.25;
             }
@@ -617,9 +693,12 @@ private:
     float min_right_dist_;
     std::vector<float> laserRange_; 
     std::vector<float> closeFar_;
-    float bestAngle_;
-    float bestClearance_;
-    bool haveScan_;
+    float bestAngle_far_;
+    float bestClearance_far_;
+    bool haveScan_far_;
+    float bestAngle_close_;
+    float bestClearance_close_;
+    bool haveScan_close_;
     double start_yaw_;
     double start_pos_x_;
     double start_pos_y_;
@@ -629,6 +708,7 @@ private:
     bool moving_;
     bool far_sequence_;
     int midpoint_;
+    int turn_count_;
 };
 
 int main(int argc, char** argv)
