@@ -4,7 +4,6 @@
 #include <map>
 #include <vector>
 #include <algorithm>
-#include <random>
 
 #include "rclcpp/rclcpp.hpp"
 #include "geometry_msgs/msg/twist_stamped.hpp"
@@ -18,14 +17,13 @@
 
 using namespace std::chrono_literals;
 
-// Utility functions
-inline double rad2deg(double rad) {return rad*180.0/M_PI;}
-inline double deg2rad(double deg) {return deg * M_PI / 180.0; }
-inline double normalizeAngle(double angle)
-{
-    while (angle > M_PI) angle -= 2.0 * M_PI;
-    while (angle < -M_PI) angle += 2.0 * M_PI;
-    return angle;
+//Utility functions for conversions 
+inline double rad2deg(double rad){
+    return rad *180.0/M_PI;
+}
+
+inline double deg2rad(double deg){
+    return deg* M_PI/180.0;
 }
 
 // Compile-time constants
@@ -34,14 +32,187 @@ constexpr float LEFT_ANGLE  =  0.0f;
 constexpr float RIGHT_ANGLE = -M_PI;
 constexpr float FOV_HALF_WIDTH = 20.0f * M_PI / 180.0f;
 
+//Func to convert range array to [far,close....etc]
+//Modifies the array in place (void return)
+//edge case: invalid ranges 
+void classifyRanges (const std::vector<float>& input_ranges, std::vector<float>& output_flags, int size, float threshold){
+    for(int i=0; i<size; i++){
+       const float r = input_ranges[i];
+       if(std::isnan(r)){
+        output_flags[i] = 0.00; //treat NaN as close/unknown
+       }
+       else if(std::isinf(r)){
+        output_flags[i] = 1.00; //treat inf as open space
+       }
+       else if(r > threshold){
+        output_flags[i] = 1.00; //far
+       }
+       else{
+        output_flags[i] = 0.00; //close
+       }
+    }
+}
+
+
+//function to return the midpoint index of the longest sequence of far ranges
+//edge cases to address: multiple long sequences of the same length
+int midSequenceFar (const std::vector<float>& sequence, int size){
+    
+    int current = 0;
+    int longest = 0;
+    int last_index = 0;
+
+    //loop to find the longest sequence of far ranges (range = 1.0)
+    for(int i=0; i<size; i++){
+        if(sequence[i] > 0.5 ){
+            current ++;
+            if(current > longest){
+                last_index = i;
+                longest = current;
+            }
+            else{
+                continue;
+            }
+        }
+        else{
+            current = 0;
+        }
+    }
+    //return -1 incase no sequence of far ranges found, otherwise return left mid point
+    if(!longest){
+        return -1;
+    }
+    else {
+        double mid = static_cast<double>(last_index) - (static_cast<double>(longest) - 1.0) / 2.0;
+        int mid_index = static_cast<int>(std::lround(mid));
+        return mid_index;
+    }
+}
+
+
+//return the center of the narrowest space of far range 
+//Need to check that it is wide enough for the body of the turtlebot
+//Turtlebot Body is 0.4 m wide 
+int midSequenceClose (const std::vector<float>& sequence, int size, const float threshold, const float angle_increment){
+    //check valid function parameters
+    if (!std::isfinite(threshold) || threshold <= 0.0f || angle_increment <= 0.0f) {
+        return -1;
+    }
+    //minimum theta value for arc length > bot width 
+
+    float angle_range = 0.5/threshold;
+    int index_width = angle_range / angle_increment; 
+    int run_start = -1;
+    int run_len = 0;
+    int shortest = std::numeric_limits<int>::max();
+    int best_mid = -1;
+
+    //loop to find the shortest sequence of far ranges (range = 1.0)
+    for(int i=0; i<size; i++){
+        if(sequence[i] > 0.5 ){
+            if (run_len == 0) {
+                run_start = i;
+            }
+            run_len++;
+        } else {
+            if (run_len >= index_width && run_len < shortest) {
+                shortest = run_len;
+                best_mid = run_start + (run_len - 1) / 2;
+            }
+            run_len = 0;
+        }
+    }
+    // handle run that reaches the end
+    if (run_len >= index_width && run_len < shortest) {
+        shortest = run_len;
+        best_mid = run_start + (run_len - 1) / 2;
+    }
+    return best_mid;
+}
+
+
+//function to return the maximum range found from laser scan 
+float maxRange(const std::vector<float>& ranges) {
+  float max_r = 0.0f;
+  for (float r : ranges) {
+    if (std::isfinite(r)) {
+      max_r = std::max(max_r, r);
+    }
+  }
+  return max_r;
+}
+
+
+//given the middle index find the lowest range surrounding it 
+float minRangeFromIndex(const std::vector<float>& ranges, const int mid_index) {
+  // check all the parameters passed in are correct
+  if (ranges.empty() || mid_index < 0 || mid_index >= static_cast<int>(ranges.size())) {
+    return std::numeric_limits<float>::quiet_NaN();
+  }
+  int start = std::max(0, mid_index - 5);
+  int end = std::min(static_cast<int>(ranges.size()) - 1, mid_index + 5);
+  float min_r = std::numeric_limits<float>::infinity();
+  bool saw_finite = false;
+  bool saw_nan = false;
+  
+  for (int i = start; i <= end; i++) {
+    const float r = ranges[i];
+    if (std::isnan(r)) {
+      saw_nan = true;
+      continue;
+    }
+    if (std::isinf(r)) {
+      continue;
+    }
+    saw_finite = true;
+    min_r = std::min(min_r, r);
+  }
+  if (saw_finite) {
+    return min_r;
+  }
+  if (saw_nan) {
+    return std::numeric_limits<float>::quiet_NaN();
+  }
+  return std::numeric_limits<float>::infinity();
+}
+
+
+//Given an index from laser scan, returns yaw with respect to front of robot
+float LasertoFrontTF(const int mid_index, const float increment){
+    float angle = rad2deg(increment*mid_index);
+    if (angle <= 90){
+        angle -= 90; 
+    }
+    else if (angle <= 270){
+        angle -= 90;
+    }
+    else {
+        angle -= 450;
+    }
+
+    return deg2rad(angle);
+}
+
+
+//Given an angle from [0,2pi], normalize to [-pi,pi]
+//Since odom angle measurement is [-pi,pi]
+float NormAngle(float angle){
+    if(angle > M_PI){
+        angle -= 2.0*M_PI;
+    }
+    else if(angle < -M_PI){
+        angle += 2.0*M_PI;
+    }
+    return angle;
+}
+
 
 class Contest1Node : public rclcpp::Node
 {
 public:
     Contest1Node()
-        : Node("contest1_node"),gen_(std::random_device{}()), 
-                                rotation_dist_(10, 30), // initializing random number gen functions
-                                sign_change_(0, 1) // 0 means negative, 1 means positive
+        : Node("contest1_node")
+
     {
         // Initialize publisher for velocity commands
         vel_pub_ = this->create_publisher<geometry_msgs::msg::TwistStamped>("/cmd_vel", 10);
@@ -65,8 +236,6 @@ public:
         timer_ = this->create_wall_timer(
             100ms, std::bind(&Contest1Node::controlLoop, this));
 
-        //Initializing random number generator
-
 
         // Initialize general timer and movement variables
         start_time_ = this->now();
@@ -80,48 +249,46 @@ public:
         start_pos_y_ = 0.0;
         target_rotation_ = 0.0;
         target_move_ = 0.0;
-        random_rotate_counter_=0; //counter to implement an occasional random walk
         turning_ = false;
         moving_ = false;
 
-        // Initialize LiDAR variables
+        // Initialize LiDAR variables for navigation
         nLasers_ = 0;
+        bestAngle_= 0.0;
+        bestClearance_ = 0.0;
+        haveScan_ = false;
 
+        // Initialize LiDAR variables for obstacle avoidance
         min_front_dist_ = std::numeric_limits<float>::infinity();
         min_left_dist_  = std::numeric_limits<float>::infinity();
         min_right_dist_ = std::numeric_limits<float>::infinity();
-
-        avg_front_dist_ = std::numeric_limits<float>::infinity();
-        avg_left_dist_  = std::numeric_limits<float>::infinity();
-        avg_right_dist_ = std::numeric_limits<float>::infinity();
         
-        // Log start message
-        RCLCPP_INFO(this->get_logger(), "Contest 1 node initialized. Running for 480 seconds.");
+        // Initialize Sequence
+        far_sequence_ = true;
+        midpoint_ = -1;
 
-        //Initialize bumper states
+        // Initialize bumper states
         bumpers_["bump_front_left"]=false;
         bumpers_["bump_front_center"]=false;
         bumpers_["bump_front_right"]=false;
         bumpers_["bump_left"]=false;
         bumpers_["bump_right"]=false;
+        
+        // Log start message
+        RCLCPP_INFO(this->get_logger(), "Contest 1 node initialized. Running for 480 seconds.");
     }
 
 
 private:
     // Helper function to calculate minimum distance within a field-of-view of the LIDAR
-    void computeFovStats(
+    void computeMinFOVDist(
         const sensor_msgs::msg::LaserScan::SharedPtr &scan,
         uint32_t center_idx,
         uint32_t fov_half_beams,
-        float &min_dist_out,
-        float &avg_dist_out)
+        float &min_dist_out)
     {
         // Set starting min dist to high value to be overwritten on first iteration
         min_dist_out = std::numeric_limits<float>::infinity();
-
-        // Counter variables to calculate min and avg distances
-        float sum = 0.0f;
-        int count = 0;
 
         // Start and end indices for FOV
         int start = std::max<int>(0, center_idx - fov_half_beams);
@@ -143,29 +310,17 @@ private:
                     // Overwrite min dist if the current beam has a smaller dist
                     min_dist_out = r;
                 }
-
-                // Increment counters
-                sum += r;
-                count++;
             }
-        }
-
-        // Calculate avg distance for FOV
-        if (count > 0)
-        {
-            avg_dist_out = sum / count;
-        }
-        else
-        {
-            avg_dist_out = std::numeric_limits<float>::infinity();
         }
     }
 
-
     void laserCallback(const sensor_msgs::msg::LaserScan::SharedPtr scan)
     {
-        // Number of laser beams in LIDAR frame
-        nLasers_ = (scan->angle_max - scan->angle_min)/scan->angle_increment;
+
+        //determine number of lasers
+        nLasers_= static_cast<int32_t>((scan->angle_max - scan->angle_min)/scan->angle_increment);
+
+        // 1. OBSTACLE AVOIDANCE LASER CALLBACK SECTION:
 
         // Number of laser beams in each FOV (all FOVs equal in angular size)
         uint32_t fov_half_beams = FOV_HALF_WIDTH / scan->angle_increment;
@@ -177,10 +332,61 @@ private:
         uint32_t left_idx  = (LEFT_ANGLE  - scan->angle_min) / scan->angle_increment;
         uint32_t right_idx = (RIGHT_ANGLE - scan->angle_min) / scan->angle_increment;
 
-        // Calculate minimum and average distances for each LIDAR FOV (front, left, right)
-        computeFovStats(scan, front_idx, fov_half_beams, min_front_dist_, avg_front_dist_);
-        computeFovStats(scan, left_idx, fov_half_beams, min_left_dist_, avg_left_dist_);
-        computeFovStats(scan, right_idx, fov_half_beams, min_right_dist_, avg_right_dist_);
+        // Calculate minimum distance for each LIDAR FOV (front, left, right)
+        computeMinFOVDist(scan, front_idx, fov_half_beams, min_front_dist_);
+        computeMinFOVDist(scan, left_idx, fov_half_beams, min_left_dist_);
+        computeMinFOVDist(scan, right_idx, fov_half_beams, min_right_dist_);
+        
+        // 2. NAVIGATION LASER CALLBACK SECTION:
+        laserRange_ = scan->ranges;
+
+        //Threshold based on maximum laser distance
+        float threshold = 0.7f * maxRange(laserRange_); //Play around
+        if (!std::isfinite(threshold) || threshold <= 0.0f) {
+            threshold = scan->range_max;
+        }
+        if (!std::isfinite(threshold) || threshold <= 0.0f) {
+            threshold = 1.0f;
+        }
+             
+        closeFar_.resize(laserRange_.size());
+
+        classifyRanges(laserRange_, closeFar_, laserRange_.size(), threshold);
+        
+        if (far_sequence_){
+            midpoint_ = midSequenceFar(closeFar_, laserRange_.size());
+            RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 2000, "Choosing most wide open space");
+        }
+        else {
+            midpoint_ = midSequenceClose(closeFar_, laserRange_.size(), threshold, scan->angle_increment);
+            RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 2000, "Choosing most narrow open space");
+
+        }
+
+        if (midpoint_ == -1) {
+            //RCLCPP_INFO(this->get_logger(), "No open space found");
+            //implement failsafe code 
+            haveScan_ = false;
+        }   
+        else {
+            bestAngle_ = LasertoFrontTF(midpoint_, scan->angle_increment);
+           //bestClearance_ = (std::isinf(laserRange_[midpoint_]))? 12.0: laserRange_[midpoint_];
+            bestClearance_ = minRangeFromIndex(laserRange_, midpoint_);
+            if (std::isnan(bestClearance_) || bestClearance_ <= 0.0f) {
+                haveScan_ = false;
+                return;
+            }
+            if (std::isinf(bestClearance_)) {
+                bestClearance_ = scan->range_max;
+            }
+            if (!std::isfinite(bestClearance_) || bestClearance_ <= 0.0f) {
+                haveScan_ = false;
+                return;
+            }
+            haveScan_ = true;
+            RCLCPP_INFO(this->get_logger(), "Angle of most open space: %f, Range of space: %f", rad2deg(bestAngle_), bestClearance_);
+        }
+
     }
 
 
@@ -275,27 +481,23 @@ private:
                 // Capture starting yaw to compare against current yaw
                 start_yaw_ = yaw_;
 
-                // If avg distance to the right >= the left, turn 90deg to the right
-                if (avg_right_dist_ >= avg_left_dist_) {
-                    target_rotation_ = deg2rad(-90.0); // right turn
-                } 
-                
-                // If avg distance to the left > the right, turn 90deg to the left
-                else {
-                    target_rotation_ = deg2rad(90.0); // left turn
-                }
+                // Rotate towards the best angle
+                target_rotation_ = bestAngle_;
 
                 // Start turning sequence
                 turning_ = true;
                 linear_ = 0.0;
                 angular_ = (target_rotation_ > 0.0) ? 1.0 : -1.0;
+
+                // alternate planning mode on each executed segment
+                far_sequence_ = !far_sequence_;
             }
         }
 
         // Priority 1b: finish any in-progress 15 or 90 deg turn
         else if (turning_) {
             // Check how much the robot has rotated
-            double angle_rotated = normalizeAngle(yaw_ - start_yaw_);
+            double angle_rotated = NormAngle(yaw_ - start_yaw_);
 
             // Compare amount rotated to target rotation, if less, keep rotating
             if (std::abs(angle_rotated) < std::abs(target_rotation_)) {
@@ -354,32 +556,16 @@ private:
             // Capture starting yaw (heading)
             start_yaw_ = yaw_;
 
-            // If avg distance to the right >= the left, turn 90deg to the right
-            if (avg_right_dist_ >= avg_left_dist_) {
-                target_rotation_ = deg2rad(-90.0); // right turn
-            } 
-            
-            // If avg distance to the left > the right, turn 90deg to the left
-            else {
-                target_rotation_ = deg2rad(90.0); // left turn
-            }
+            // Rotate towards the best angle
+            target_rotation_ = bestAngle_;
 
-            //Adding random walk feature every 5 rotations --- adds a random degree of rotation between 10 and 30 degrees to target_rotation 
-            random_rotate_counter_=random_rotate_counter_+1;
-            if (random_rotate_counter_ == 3){
-                int random_change_=rotation_dist_(gen_);
-                if (sign_change_(gen_)==0)
-                {
-                    random_change_=random_change_*(-1); // made negative randomly
-                }
-                target_rotation_= target_rotation_ + deg2rad(random_change_);
-                RCLCPP_INFO(this->get_logger(), "Random Rotation!");
-                random_rotate_counter_=1;
-            }
             // Start turning sequence
             turning_ = true;
             linear_ = 0.0;
             angular_ = (target_rotation_ > 0.0) ? 1.0 : -1.0;
+
+            // alternate planning mode on each executed segment
+            far_sequence_ = !far_sequence_;
         }
 
         // Priority 5: move forward if clear (slow down when near walls)
@@ -429,9 +615,11 @@ private:
     float min_front_dist_;
     float min_left_dist_;
     float min_right_dist_;
-    float avg_front_dist_;
-    float avg_left_dist_;
-    float avg_right_dist_;
+    std::vector<float> laserRange_; 
+    std::vector<float> closeFar_;
+    float bestAngle_;
+    float bestClearance_;
+    bool haveScan_;
     double start_yaw_;
     double start_pos_x_;
     double start_pos_y_;
@@ -439,10 +627,8 @@ private:
     double target_move_;
     bool turning_;
     bool moving_;
-    int random_rotate_counter_;
-    std::mt19937 gen_;
-    std::uniform_int_distribution<int> rotation_dist_; //These are random number generators to flip between negative and positive
-    std::uniform_int_distribution<int> sign_change_;
+    bool far_sequence_;
+    int midpoint_;
 };
 
 int main(int argc, char** argv)
