@@ -14,7 +14,8 @@
 #include "tf2/utils.h"
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
-// TURTLE BOT COMMANDS: GAZEBO: ros2 launch turtlebot4_gz_bringup turtlebot4_gz.launch.py model:=lite
+// BACKUP: UPDATED Feb 8, 2026 at 9:45PM
+// Backup is before integrating all codes into one (so only Nico and Lucas' code)
 
 using namespace std::chrono_literals;
 
@@ -40,20 +41,23 @@ class Contest1Node : public rclcpp::Node
 public:
     Contest1Node()
         : Node("contest1_node"),gen_(std::random_device{}()), 
-                                rotation_dist_(10, 30),//initializing random number gen functions
+                                rotation_dist_(10, 30), // initializing random number gen functions
                                 sign_change_(0, 1) // 0 means negative, 1 means positive
     {
         // Initialize publisher for velocity commands
         vel_pub_ = this->create_publisher<geometry_msgs::msg::TwistStamped>("/cmd_vel", 10);
 
+        // LiDAR scan subscriber
         laser_sub_ = this->create_subscription<sensor_msgs::msg::LaserScan>(
             "/scan", rclcpp::SensorDataQoS(),
             std::bind(&Contest1Node::laserCallback, this, std::placeholders::_1));
 
+        // Bumper hazard detection subscriber
         hazard_sub_ = this->create_subscription<irobot_create_msgs::msg::HazardDetectionVector>(
             "/hazard_detection", rclcpp::SensorDataQoS(),
             std::bind(&Contest1Node::hazardCallback, this, std::placeholders::_1));
 
+        // Turtlebot odometry subscriber
         odom_sub_ = this->create_subscription<nav_msgs::msg::Odometry>(
             "/odom", rclcpp::SensorDataQoS(),
             std::bind(&Contest1Node::odomCallback, this, std::placeholders::_1));
@@ -80,6 +84,7 @@ public:
         random_rotate_counter_=0; //counter to implement an occasional random walk
         turning_ = false;
         moving_ = false;
+        noTurn_=false;
 
         // Initialize LiDAR variables
         nLasers_ = 0;
@@ -249,6 +254,7 @@ private:
         // Priority 1a: finish any in-progress backing-up from bumper hit
         if (moving_) {
             // Check how much distance robot has moved
+            noTurn_=false;
             double distance_moved = std::sqrt(
                 std::pow(pos_x_ - start_pos_x_, 2) +
                 std::pow(pos_y_ - start_pos_y_, 2)
@@ -265,10 +271,13 @@ private:
                             distance_moved,
                             target_distance);
             } else {
-                // Reached target distance, start moving forward again
-                RCLCPP_INFO(this->get_logger(), "Reached 0.15m backup, resuming forward movement");
+                // Reached target distance, rotate 90deg and then keep moving
+                RCLCPP_INFO(this->get_logger(), "Reached 0.15m backup, start turning");
                 moving_ = false;
-                //Code to turn around after hitting wall - copied from below
+
+                // Capture starting yaw to compare against current yaw
+                start_yaw_ = yaw_;
+
                 // If avg distance to the right >= the left, turn 90deg to the right
                 if (avg_right_dist_ >= avg_left_dist_) {
                     target_rotation_ = deg2rad(-90.0); // right turn
@@ -285,6 +294,7 @@ private:
                 angular_ = (target_rotation_ > 0.0) ? 1.0 : -1.0;
             }
         }
+
         // Priority 1b: finish any in-progress 15 or 90 deg turn
         else if (turning_) {
             // Check how much the robot has rotated
@@ -305,67 +315,7 @@ private:
             }
         }
 
-        // Priority 2: if obstacle to the left or right, start a 15 deg turn away from obstacle
-        else if (!any_bumper_pressed && (min_left_dist_ < 0.4 || min_right_dist_ < 0.4)) {
-            // Capture starting yaw (heading)
-            start_yaw_ = yaw_;
-
-            // If obstacle to the left within 0.4m, turn right 15deg
-            if (min_left_dist_ < 0.4) {
-                target_rotation_ = deg2rad(-15.0); // right turn
-            } 
-            
-            // If obstacle to the right within 0.4m, turn left 15deg
-            else {
-                target_rotation_ = deg2rad(15.0);  // left turn
-            }
-
-            // Start turning sequence
-            turning_ = true;
-            linear_ = 0.0;
-            angular_ = (target_rotation_ > 0.0) ? 1.0 : -1.0;
-        }
-
-        // Priority 3: if obstacle in front, decide which way to go based on lidar data (skewed to right)
-        else if (!any_bumper_pressed && min_front_dist_ < 0.5) {
-            // Capture starting yaw (heading)
-            start_yaw_ = yaw_;
-
-            // If avg distance to the right >= the left, turn 90deg to the right
-            if (avg_right_dist_ >= avg_left_dist_) {
-                target_rotation_ = deg2rad(-90.0); // right turn
-            } 
-            
-            // If avg distance to the left > the right, turn 90deg to the left
-            else {
-                target_rotation_ = deg2rad(90.0); // left turn
-            }
-
-            //Adding random walk feature every 5 rotations --- adds a random degree of rotation between 10 and 30 degrees to target_rotation 
-            random_rotate_counter_=random_rotate_counter_+1;
-            if (random_rotate_counter_==5){
-                int random_change_=rotation_dist_(gen_);
-                if (sign_change_(gen_)==0)
-                {
-                    random_change_=random_change_*(-1); //made negative randomly
-                }
-                target_rotation_=target_rotation_ + deg2rad(random_change_);
-                RCLCPP_INFO(this->get_logger(), "Random Rotation!");
-                random_rotate_counter_=1;
-            }
-            // Start turning sequence
-            turning_ = true;
-            linear_ = 0.0;
-            angular_ = (target_rotation_ > 0.0) ? 1.0 : -1.0;
-        }
-
-        // Priority 4: move forward if clear
-        else if (!any_bumper_pressed && min_front_dist_ >= 0.5) {
-            angular_ = 0.0;
-            linear_ = 0.25;
-        }
-
-        // Priority 5: if bumper hit, back up 0.15 m
+        // Priority 2: if bumper hit, back up 0.15 m
         else if (any_bumper_pressed) {
             // Record starting position
             start_pos_x_ = pos_x_;
@@ -381,10 +331,78 @@ private:
             angular_ = 0.0;
         }
 
+        // Priority 3: if obstacle to the left or right, start a 15 deg turn away from obstacle
+        else if (!any_bumper_pressed && (min_left_dist_ < 0.25 || min_right_dist_ < 0.25) && !noTurn_) {
+            // Capture starting yaw (heading)
+            start_yaw_ = yaw_;
+
+            // If obstacle to the left within 0.4m, turn right 15deg
+            if (min_left_dist_ < 0.25) {
+                target_rotation_ = deg2rad(-15.0); // right turn
+            } 
+            
+            // If obstacle to the right within 0.4m, turn left 15deg
+            else {
+                target_rotation_ = deg2rad(15.0);  // left turn
+            }
+
+            // Start turning sequence
+            turning_ = true;
+            linear_ = 0.0;
+            angular_ = (target_rotation_ > 0.0) ? 1.0 : -1.0;
+            noTurn_ = true; // to stop multiple 15 degree turns
+        }
+
+        // Priority 4: if obstacle in front, decide which way to go based on lidar data (skewed to right)
+        else if (!any_bumper_pressed && min_front_dist_ < 0.4) {
+            // Capture starting yaw (heading)
+            start_yaw_ = yaw_;
+
+            // If avg distance to the right >= the left, turn 90deg to the right
+            if (avg_right_dist_ >= avg_left_dist_) {
+                target_rotation_ = deg2rad(-90.0); // right turn
+            } 
+            
+            // If avg distance to the left > the right, turn 90deg to the left
+            else {
+                target_rotation_ = deg2rad(90.0); // left turn
+            }
+
+            //Adding random walk feature every 5 rotations --- adds a random degree of rotation between 10 and 30 degrees to target_rotation 
+            random_rotate_counter_=random_rotate_counter_+1;
+            if (random_rotate_counter_ == 3){
+                int random_change_=rotation_dist_(gen_);
+                if (sign_change_(gen_)==0)
+                {
+                    random_change_=random_change_*(-1); // made negative randomly
+                }
+                target_rotation_= target_rotation_ + deg2rad(random_change_);
+                RCLCPP_INFO(this->get_logger(), "Random Rotation!");
+                random_rotate_counter_=1;
+            }
+            // Start turning sequence
+            turning_ = true;
+            linear_ = 0.0;
+            angular_ = (target_rotation_ > 0.0) ? 1.0 : -1.0;
+        }
+
+        // Priority 5: move forward if clear (slow down when near walls)
+        else if (!any_bumper_pressed && min_front_dist_ >= 0.4) {
+            angular_ = 0.0;
+            noTurn_ = false; //to allow for 15 deg turn again
+            if (min_front_dist_ <= 0.5 || min_left_dist_ <= 0.5 || min_right_dist_ <= 0.5) {
+                linear_ = 0.1;
+                RCLCPP_INFO(this->get_logger(), "\nSlow down activated\n");
+            } else {
+                linear_ = 0.25;
+            }
+        }
+
         // Fallback for errors: stop moving robot
         else {
             angular_ = 0.0;
             linear_ = 0.0;
+            RCLCPP_INFO(this->get_logger(), "Else statement shutdown activated\n\n\n\n");
             rclcpp::shutdown();
             return;
         }
@@ -426,6 +444,7 @@ private:
     double target_move_;
     bool turning_;
     bool moving_;
+    bool noTurn_; //To prevent multiple 15 degree turns
     int random_rotate_counter_;
     std::mt19937 gen_;
     std::uniform_int_distribution<int> rotation_dist_; //These are random number generators to flip between negative and positive
