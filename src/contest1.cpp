@@ -4,7 +4,7 @@
 #include <map>
 #include <vector>
 #include <algorithm>
-#include <random>
+#include <string>
 
 #include "rclcpp/rclcpp.hpp"
 #include "geometry_msgs/msg/twist_stamped.hpp"
@@ -14,19 +14,17 @@
 #include "tf2/utils.h"
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
-// BACKUP: UPDATED Feb 8, 2026 at 9:45PM
-// Backup is before integrating all codes into one (so only Nico and Lucas' code)
+// TURTLE BOT COMMANDS: GAZEBO: ros2 launch turtlebot4_gz_bringup turtlebot4_gz.launch.py model:=lite
 
 using namespace std::chrono_literals;
 
-// Utility functions
-inline double rad2deg(double rad) {return rad*180.0/M_PI;}
-inline double deg2rad(double deg) {return deg * M_PI / 180.0; }
-inline double normalizeAngle(double angle)
-{
-    while (angle > M_PI) angle -= 2.0 * M_PI;
-    while (angle < -M_PI) angle += 2.0 * M_PI;
-    return angle;
+//Utility functions for conversions 
+inline double rad2deg(double rad){
+    return rad *180.0/M_PI;
+}
+
+inline double deg2rad(double deg){
+    return deg* M_PI/180.0;
 }
 
 // Compile-time constants
@@ -35,14 +33,219 @@ constexpr float LEFT_ANGLE  =  0.0f;
 constexpr float RIGHT_ANGLE = -M_PI;
 constexpr float FOV_HALF_WIDTH = 20.0f * M_PI / 180.0f;
 
+//Func to convert range array to [far,close....etc]
+//Modifies the array in place (void return)
+//edge case: invalid ranges 
+void classifyRanges (const std::vector<float>& input_ranges, std::vector<float>& output_flags, int size, float threshold){
+    for(int i=0; i<size; i++){
+       const float r = input_ranges[i];
+       if(std::isnan(r)){
+        output_flags[i] = 0.00; //treat NaN as close/unknown
+       }
+       else if(std::isinf(r)){
+        output_flags[i] = 0.00; //treat inf as open space
+       }
+       else if(r > threshold){
+        output_flags[i] = 1.00; //far
+       }
+       else{
+        output_flags[i] = 0.00; //close
+       }
+    }
+}
+
+
+// Choose the best index inside a run using the largest finite range (avoid edges if possible)
+int bestIndexInRun(const std::vector<float>& ranges, int start, int len) {
+    if (len <= 0 || start < 0 || start + len > static_cast<int>(ranges.size())) {
+        return -1;
+    }
+    int margin = std::max(0, len / 6);
+    int s = start + margin;
+    int e = start + len - 1 - margin;
+    if (s > e) {
+        s = start;
+        e = start + len - 1;
+    }
+    int best = -1;
+    float best_r = -1.0f;
+    for (int i = s; i <= e; ++i) {
+        float r = ranges[i];
+        if (!std::isfinite(r)) {
+            continue;
+        }
+        if (r > best_r) {
+            best_r = r;
+            best = i;
+        }
+    }
+    if (best >= 0) {
+        return best;
+    }
+    return start + (len - 1) / 2;
+}
+
+//function to return the best index of the longest sequence of far ranges
+//edge cases to address: multiple long sequences of the same length
+int midSequenceFar(const std::vector<float>& sequence,
+                   const std::vector<float>& ranges,
+                   int size) {
+    int run_start = -1;
+    int run_len = 0;
+    int best_start = -1;
+    int best_len = 0;
+
+    //loop to find the longest sequence of far ranges (range = 1.0)
+    for (int i = 0; i < size; i++) {
+        if (sequence[i] > 0.5) {
+            if (run_len == 0) {
+                run_start = i;
+            }
+            run_len++;
+            if (run_len > best_len) {
+                best_len = run_len;
+                best_start = run_start;
+            }
+        } else {
+            run_len = 0;
+        }
+    }
+    //return -1 incase no sequence of far ranges found
+    if (best_len == 0) {
+        return -1;
+    }
+    return bestIndexInRun(ranges, best_start, best_len);
+}
+
+
+//return the center of the narrowest space of far range 
+//Need to check that it is wide enough for the body of the turtlebot
+//Turtlebot Body is 0.4 m wide 
+int midSequenceClose(const std::vector<float>& sequence,
+                     const std::vector<float>& ranges,
+                     int size,
+                     const float threshold,
+                     const float angle_increment) {
+    // Minimum theta value for arc length > bot width (with margin)
+    const float kRobotWidth = 0.45f;
+    const float safe_threshold = std::max(threshold, 0.05f);
+    const float width_range = std::max(safe_threshold, 0.8f);
+    const float angle_range = kRobotWidth / width_range;
+    const int index_width = std::max(1, static_cast<int>(std::ceil(angle_range / angle_increment)));
+    int run_start = -1;
+    int run_len = 0;
+    int shortest = std::numeric_limits<int>::max();
+    int best_start = -1;
+
+    //loop to find the shortest sequence of far ranges (range = 1.0)
+    for(int i=0; i<size; i++){
+        if(sequence[i] > 0.5 ){
+            if (run_len == 0) {
+                run_start = i;
+            }
+            run_len++;
+        } else {
+            if (run_len >= index_width && run_len < shortest) {
+                shortest = run_len;
+                best_start = run_start;
+            }
+            run_len = 0;
+        }
+    }
+    // handle run that reaches the end
+    if (run_len >= index_width && run_len < shortest) {
+        shortest = run_len;
+        best_start = run_start;
+    }
+    if (best_start < 0) {
+        return -1;
+    }
+    return bestIndexInRun(ranges, best_start, shortest);
+}
+
+
+//function to return the maximum range found from laser scan 
+float maxRange(const std::vector<float>& ranges) {
+  float max_r = 0.0f;
+  for (float r : ranges) {
+    if (std::isfinite(r)) {
+      max_r = std::max(max_r, r);
+    }
+  }
+  return max_r;
+}
+
+
+//given the middle index find the lowest range surrounding it 
+float minRangeFromIndex(const std::vector<float>& ranges, const int mid_index) {
+  // check all the parameters passed in are correct
+  if (ranges.empty() || mid_index < 0 || mid_index >= static_cast<int>(ranges.size())) {
+    return std::numeric_limits<float>::quiet_NaN();
+  }
+  int start = std::max(0, mid_index - 5);
+  int end = std::min(static_cast<int>(ranges.size()) - 1, mid_index + 5);
+  float min_r = std::numeric_limits<float>::infinity();
+  bool saw_finite = false;
+  bool saw_nan = false;
+  
+  for (int i = start; i <= end; i++) {
+    const float r = ranges[i];
+    if (std::isnan(r)) {
+      saw_nan = true;
+      continue;
+    }
+    if (std::isinf(r)) {
+      continue;
+    }
+    saw_finite = true;
+    min_r = std::min(min_r, r);
+  }
+  if (saw_finite) {
+    return min_r;
+  }
+  if (saw_nan) {
+    return std::numeric_limits<float>::quiet_NaN();
+  }
+  return std::numeric_limits<float>::infinity();
+}
+
+
+//Given an index from laser scan, returns yaw with respect to front of robot
+float LasertoFrontTF(const int mid_index, const float increment){
+    float angle = rad2deg(increment*mid_index);
+    if (angle <= 90){
+        angle -= 90; 
+    }
+    else if(angle <= 270){
+        angle -= 90;
+    }
+    else{
+        angle -= 450;
+    }
+
+    return deg2rad(angle);
+}
+
+
+//Given an angle from [0,2pi], normalize to [-pi,pi]
+//Since odom angle measurement is [-pi,pi]
+float NormAngle(float angle){
+    if(angle > M_PI){
+        angle -= 2.0*M_PI;
+    }
+    else if(angle < -M_PI){
+        angle += 2.0*M_PI;
+    }
+    return angle;
+}
+
 
 class Contest1Node : public rclcpp::Node
 {
 public:
     Contest1Node()
-        : Node("contest1_node"),gen_(std::random_device{}()), 
-                                rotation_dist_(10, 30), // initializing random number gen functions
-                                sign_change_(0, 1) // 0 means negative, 1 means positive
+        : Node("contest1_node")
+
     {
         // Initialize publisher for velocity commands
         vel_pub_ = this->create_publisher<geometry_msgs::msg::TwistStamped>("/cmd_vel", 10);
@@ -66,8 +269,6 @@ public:
         timer_ = this->create_wall_timer(
             100ms, std::bind(&Contest1Node::controlLoop, this));
 
-        //Initializing random number generator
-
 
         // Initialize general timer and movement variables
         start_time_ = this->now();
@@ -81,55 +282,63 @@ public:
         start_pos_y_ = 0.0;
         target_rotation_ = 0.0;
         target_move_ = 0.0;
-        random_rotate_counter_=0; //counter to implement an occasional random walk
         turning_ = false;
         moving_ = false;
-        noTurn_=false;
+        backup_start_time_ = this->now();
 
-        // Initialize LiDAR variables
+        // Initialize LiDAR variables for navigation
         nLasers_ = 0;
+        bestAngle_far_ = 0.0;
+        bestClearance_far_ = 0.0;
+        haveScan_far_ = false;
+        bestAngle_close_ = 0.0;
+        bestClearance_close_ = 0.0;
+        haveScan_close_ = false;
 
+        // Initialize LiDAR variables for obstacle avoidance
         min_front_dist_ = std::numeric_limits<float>::infinity();
         min_left_dist_  = std::numeric_limits<float>::infinity();
         min_right_dist_ = std::numeric_limits<float>::infinity();
-
-        avg_front_dist_ = std::numeric_limits<float>::infinity();
-        avg_left_dist_  = std::numeric_limits<float>::infinity();
-        avg_right_dist_ = std::numeric_limits<float>::infinity();
+        front_blocked_ = false;
         
-        // Log start message
-        RCLCPP_INFO(this->get_logger(), "Contest 1 node initialized. Running for 480 seconds.");
+        // Initialize Sequence
+        far_sequence_ = true;
+        midpoint_ = -1;
+        turn_count_ = 0;
+        avoid_turn_cooldown_ = 0;
 
-        //Initialize bumper states
+        // Initialize bumper states
         bumpers_["bump_front_left"]=false;
         bumpers_["bump_front_center"]=false;
         bumpers_["bump_front_right"]=false;
         bumpers_["bump_left"]=false;
         bumpers_["bump_right"]=false;
+        last_bump_id_.clear();
+        last_bump_valid_ = false;
+        
+        // Log start message
+        RCLCPP_INFO(this->get_logger(), "Contest 1 node initialized. Running for 480 seconds.");
     }
 
 
 private:
     // Helper function to calculate minimum distance within a field-of-view of the LIDAR
-    void computeFovStats(
+    void computeMinFOVDist(
         const sensor_msgs::msg::LaserScan::SharedPtr &scan,
-        uint32_t center_idx,
-        uint32_t fov_half_beams,
-        float &min_dist_out,
-        float &avg_dist_out)
+        int center_idx,
+        int fov_half_beams,
+        float &min_dist_out)
     {
         // Set starting min dist to high value to be overwritten on first iteration
         min_dist_out = std::numeric_limits<float>::infinity();
-
-        // Counter variables to calculate min and avg distances
-        float sum = 0.0f;
-        int count = 0;
+        if (scan->ranges.empty()) {
+            return;
+        }
 
         // Start and end indices for FOV
-        int start = std::max<int>(0, center_idx - fov_half_beams);
-        int end   = std::min<int>(
-            scan->ranges.size() - 1,
-            center_idx + fov_half_beams);
+        const int last_idx = static_cast<int>(scan->ranges.size()) - 1;
+        int start = std::max(0, center_idx - fov_half_beams);
+        int end   = std::min(last_idx, center_idx + fov_half_beams);
 
         // Loop through beam indices for FOV
         for (int i = start; i <= end; ++i)
@@ -145,44 +354,123 @@ private:
                     // Overwrite min dist if the current beam has a smaller dist
                     min_dist_out = r;
                 }
-
-                // Increment counters
-                sum += r;
-                count++;
             }
-        }
-
-        // Calculate avg distance for FOV
-        if (count > 0)
-        {
-            avg_dist_out = sum / count;
-        }
-        else
-        {
-            avg_dist_out = std::numeric_limits<float>::infinity();
         }
     }
 
+    void computeBestFromMidpoint(
+        int midpoint,
+        const sensor_msgs::msg::LaserScan::SharedPtr &scan,
+        float &angle_out,
+        float &clearance_out,
+        bool &have_out)
+    {
+        if (midpoint < 0 || midpoint >= static_cast<int>(scan->ranges.size())) {
+            have_out = false;
+            return;
+        }
+
+        angle_out = LasertoFrontTF(midpoint, scan->angle_increment);
+        clearance_out = minRangeFromIndex(laserRange_, midpoint);
+
+        if (std::isnan(clearance_out) || clearance_out <= 0.0f) {
+            have_out = false;
+            return;
+        }
+        if (std::isinf(clearance_out)) {
+            clearance_out = scan->range_max;
+        }
+        if (!std::isfinite(clearance_out) || clearance_out <= 0.0f) {
+            have_out = false;
+            return;
+        }
+
+        have_out = true;
+    }
 
     void laserCallback(const sensor_msgs::msg::LaserScan::SharedPtr scan)
     {
-        // Number of laser beams in LIDAR frame
-        nLasers_ = (scan->angle_max - scan->angle_min)/scan->angle_increment;
+        if (scan->ranges.empty() || !std::isfinite(scan->angle_increment) || scan->angle_increment <= 0.0f) {
+            min_front_dist_ = std::numeric_limits<float>::infinity();
+            min_left_dist_ = std::numeric_limits<float>::infinity();
+            min_right_dist_ = std::numeric_limits<float>::infinity();
+            haveScan_far_ = false;
+            haveScan_close_ = false;
+            return;
+        }
+
+        //determine number of lasers
+        nLasers_= static_cast<int32_t>((scan->angle_max - scan->angle_min)/scan->angle_increment);
+
+        // 1. OBSTACLE AVOIDANCE LASER CALLBACK SECTION:
 
         // Number of laser beams in each FOV (all FOVs equal in angular size)
-        uint32_t fov_half_beams = FOV_HALF_WIDTH / scan->angle_increment;
+        int fov_half_beams = std::max(1, static_cast<int>(std::lround(FOV_HALF_WIDTH / scan->angle_increment)));
 
         //RCLCPP_INFO(this->get_logger(), "Size of laser scan array: %d, and size of offset %d", nLasers_, desiredNLasers_);
 
-        // Array indices for each FOV
-        uint32_t front_idx = (FRONT_ANGLE - scan->angle_min) / scan->angle_increment;
-        uint32_t left_idx  = (LEFT_ANGLE  - scan->angle_min) / scan->angle_increment;
-        uint32_t right_idx = (RIGHT_ANGLE - scan->angle_min) / scan->angle_increment;
+        const int last_idx = static_cast<int>(scan->ranges.size()) - 1;
+        auto angleToIndex = [&](float angle) {
+            int idx = static_cast<int>(std::lround((angle - scan->angle_min) / scan->angle_increment));
+            return std::clamp(idx, 0, last_idx);
+        };
 
-        // Calculate minimum and average distances for each LIDAR FOV (front, left, right)
-        computeFovStats(scan, front_idx, fov_half_beams, min_front_dist_, avg_front_dist_);
-        computeFovStats(scan, left_idx, fov_half_beams, min_left_dist_, avg_left_dist_);
-        computeFovStats(scan, right_idx, fov_half_beams, min_right_dist_, avg_right_dist_);
+        // Array indices for each FOV
+        int front_idx = angleToIndex(FRONT_ANGLE);
+        int left_idx  = angleToIndex(LEFT_ANGLE);
+        int right_idx = angleToIndex(RIGHT_ANGLE);
+
+        // Calculate minimum distance for each LIDAR FOV (front, left, right)
+        computeMinFOVDist(scan, front_idx, fov_half_beams, min_front_dist_);
+        computeMinFOVDist(scan, left_idx, fov_half_beams, min_left_dist_);
+        computeMinFOVDist(scan, right_idx, fov_half_beams, min_right_dist_);
+        
+        // 2. NAVIGATION LASER CALLBACK SECTION:
+        laserRange_ = scan->ranges;
+
+        // Thresholds for open space classification (capped to avoid extreme values)
+        float max_range = maxRange(laserRange_);
+        if (!std::isfinite(max_range) || max_range <= 0.0f) {
+            max_range = scan->range_max;
+        }
+        if (!std::isfinite(max_range) || max_range <= 0.0f) {
+            max_range = 1.0f;
+        }
+        constexpr float kMinOpenClearance = 0.45f;
+        constexpr float kMaxWideThreshold = 3.0f;
+        constexpr float kMaxNarrowThreshold = 2.0f;
+
+        float threshold_wide = std::min(kMaxWideThreshold, 0.9f * max_range);
+        float threshold_narrow = std::min(kMaxNarrowThreshold, 0.5f * max_range);
+        threshold_wide = std::max(threshold_wide, kMinOpenClearance);
+        threshold_narrow = std::max(threshold_narrow, kMinOpenClearance);
+
+             
+        wideSpace_.resize(laserRange_.size());
+        narrowSpace_.resize(laserRange_.size());
+
+
+        classifyRanges(laserRange_, wideSpace_, laserRange_.size(), threshold_wide);
+        classifyRanges(laserRange_, narrowSpace_, laserRange_.size(), threshold_narrow);
+
+        
+        int midpoint_far = midSequenceFar(wideSpace_, laserRange_, laserRange_.size());
+        int midpoint_close = midSequenceClose(narrowSpace_, laserRange_, laserRange_.size(), threshold_narrow, scan->angle_increment);
+
+        computeBestFromMidpoint(midpoint_far, scan, bestAngle_far_, bestClearance_far_, haveScan_far_);
+        computeBestFromMidpoint(midpoint_close, scan, bestAngle_close_, bestClearance_close_, haveScan_close_);
+
+        if (haveScan_far_) {
+            RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 2000,
+                                 "Far space: angle %f deg, range %f",
+                                 rad2deg(bestAngle_far_), bestClearance_far_);
+        }
+        if (haveScan_close_) {
+            RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 2000,
+                                 "Narrow space: angle %f deg, range %f",
+                                 rad2deg(bestAngle_close_), bestClearance_close_);
+        }
+
     }
 
 
@@ -209,6 +497,8 @@ private:
         for (const auto& detection : hazard_vector->detections) {
             if (detection.type == irobot_create_msgs::msg::HazardDetection::BUMP) {
                 bumpers_[detection.header.frame_id] = true;
+                last_bump_id_ = detection.header.frame_id;
+                last_bump_valid_ = true;
                 RCLCPP_INFO(this->get_logger(), "Bumper pressed %s", detection.header.frame_id.c_str());
             }
         }
@@ -248,13 +538,124 @@ private:
             }
         }
 
+        // Front-obstacle hysteresis to avoid state chatter near a single threshold.
+        constexpr float kFrontEnterBlocked = 0.36f;
+        constexpr float kFrontExitBlocked = 0.45f;
+        if (front_blocked_) {
+            front_blocked_ = (min_front_dist_ < kFrontExitBlocked);
+        } else {
+            front_blocked_ = (min_front_dist_ < kFrontEnterBlocked);
+        }
+
+        const float max_turn = deg2rad(120.0f);
+
+        auto choose_turn_angle = [&](float &angle_out, const char* &mode_label) -> bool {
+            auto within_turn_limit = [&](float angle) {
+                return std::abs(angle) <= max_turn;
+            };
+            if (far_sequence_) {
+                if (haveScan_far_ && within_turn_limit(bestAngle_far_)) {
+                    angle_out = bestAngle_far_;
+                    mode_label = "wide";
+                    return true;
+                }
+                if (haveScan_close_ && within_turn_limit(bestAngle_close_)) {
+                    angle_out = bestAngle_close_;
+                    mode_label = "narrow (fallback)";
+                    return true;
+                }
+            } else {
+                if (haveScan_close_ && within_turn_limit(bestAngle_close_)) {
+                    angle_out = bestAngle_close_;
+                    mode_label = "narrow";
+                    return true;
+                }
+                if (haveScan_far_ && within_turn_limit(bestAngle_far_)) {
+                    angle_out = bestAngle_far_;
+                    mode_label = "wide (fallback)";
+                    return true;
+                }
+            }
+            return false;
+        };
+
+        auto log_turn_choice_state = [&](const char* context) {
+            RCLCPP_INFO(this->get_logger(),
+                        "[%s] turn_count=%d far_sequence=%s | far(have=%s, angle=%.2f, range=%.2f) "
+                        "close(have=%s, angle=%.2f, range=%.2f)",
+                        context,
+                        turn_count_,
+                        far_sequence_ ? "true" : "false",
+                        haveScan_far_ ? "true" : "false",
+                        rad2deg(bestAngle_far_),
+                        bestClearance_far_,
+                        haveScan_close_ ? "true" : "false",
+                        rad2deg(bestAngle_close_),
+                        bestClearance_close_);
+        };
+
+        auto begin_escape_turn = [&](const char* reason_label) {
+            RCLCPP_INFO(this->get_logger(), "Begin escape turn (%s)", reason_label);
+            moving_ = false;
+
+            // Capture starting yaw to compare against current yaw
+            start_yaw_ = yaw_;
+
+            // Update turn cycle before choosing
+            turn_count_++;
+            constexpr int kWideEvery = 4;
+            far_sequence_ = (turn_count_ % kWideEvery == 1);
+            log_turn_choice_state(reason_label);
+            const double kEscapeTurn = deg2rad(60.0);
+            const double kMinEscapeTurn = deg2rad(25.0);
+            const double kFallbackTurn = deg2rad(45.0);
+            float chosen_angle = 0.0f;
+            const char* mode_label = "unknown";
+            bool using_escape_turn = false;
+            if (last_bump_valid_) {
+                if (last_bump_id_.find("left") != std::string::npos) {
+                    target_rotation_ = -kEscapeTurn; // turn right away from left bump
+                    mode_label = "bumper-escape-right";
+                    using_escape_turn = true;
+                } else if (last_bump_id_.find("right") != std::string::npos) {
+                    target_rotation_ = kEscapeTurn; // turn left away from right bump
+                    mode_label = "bumper-escape-left";
+                    using_escape_turn = true;
+                } else {
+                    // center/front bump: pick the clearer side
+                    target_rotation_ = (min_left_dist_ > min_right_dist_) ? kEscapeTurn : -kEscapeTurn;
+                    mode_label = "bumper-escape-center";
+                    using_escape_turn = true;
+                }
+                last_bump_valid_ = false;
+            }
+            if (!using_escape_turn) {
+                if (!choose_turn_angle(chosen_angle, mode_label)) {
+                    RCLCPP_WARN(this->get_logger(), "No valid scan to choose turn angle, using fallback");
+                    mode_label = "fallback-clear-side";
+                    target_rotation_ = (min_left_dist_ > min_right_dist_) ? kFallbackTurn : -kFallbackTurn;
+                } else {
+                    target_rotation_ = chosen_angle;
+                }
+                if (std::abs(target_rotation_) < kMinEscapeTurn) {
+                    target_rotation_ = (target_rotation_ >= 0.0) ? kMinEscapeTurn : -kMinEscapeTurn;
+                    mode_label = "clamped-turn";
+                }
+            }
+            RCLCPP_INFO(this->get_logger(), "Choosing most %s space for rotation", mode_label);
+
+            // Start turning sequence
+            turning_ = true;
+            linear_ = 0.0;
+            angular_ = (target_rotation_ > 0.0) ? 1.0 : -1.0;
+        };
+
         // Log position, orientation, and min laser distances
-        RCLCPP_INFO(this->get_logger(), "Position: (%.2f, %.2f), Orientation: %f rad or %f deg, Minimum laser distance in front, left, and right: (%.2f, %.2f, %.2f)", pos_x_, pos_y_, yaw_, rad2deg(yaw_), min_front_dist_, min_left_dist_, min_right_dist_);
+        RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 2000, "Position: (%.2f, %.2f), Orientation: %f rad or %f deg, Minimum laser distance in front, left, and right: (%.2f, %.2f, %.2f)", pos_x_, pos_y_, yaw_, rad2deg(yaw_), min_front_dist_, min_left_dist_, min_right_dist_);
         
         // Priority 1a: finish any in-progress backing-up from bumper hit
         if (moving_) {
             // Check how much distance robot has moved
-            noTurn_=false;
             double distance_moved = std::sqrt(
                 std::pow(pos_x_ - start_pos_x_, 2) +
                 std::pow(pos_y_ - start_pos_y_, 2)
@@ -262,8 +663,13 @@ private:
 
             // Obtain target distance to move
             double target_distance = std::abs(target_move_);
+            constexpr double kBackupTimeout = 5.0;
+            double backup_elapsed = (this->now() - backup_start_time_).seconds();
 
-            if (distance_moved < target_distance) {
+            if (backup_elapsed > kBackupTimeout) {
+                RCLCPP_WARN(this->get_logger(), "Backup timeout (%.2fs). Stopping backup and turning.", backup_elapsed);
+                begin_escape_turn("backup-timeout");
+            } else if (distance_moved < target_distance) {
                 // Continue moving until robot hits target distance
                 linear_ = (target_move_ > 0.0) ? 0.1 : -0.1; //CHANGED TO 0.1 BECAUSE IF YOU BUMPED YOU ARE CLOSE TO WALL
                 angular_ = 0.0;
@@ -271,34 +677,16 @@ private:
                             distance_moved,
                             target_distance);
             } else {
-                // Reached target distance, rotate 90deg and then keep moving
+                // Reached target distance, start escape turn
                 RCLCPP_INFO(this->get_logger(), "Reached 0.15m backup, start turning");
-                moving_ = false;
-
-                // Capture starting yaw to compare against current yaw
-                start_yaw_ = yaw_;
-
-                // If avg distance to the right >= the left, turn 90deg to the right
-                if (avg_right_dist_ >= avg_left_dist_) {
-                    target_rotation_ = deg2rad(-90.0); // right turn
-                } 
-                
-                // If avg distance to the left > the right, turn 90deg to the left
-                else {
-                    target_rotation_ = deg2rad(90.0); // left turn
-                }
-
-                // Start turning sequence
-                turning_ = true;
-                linear_ = 0.0;
-                angular_ = (target_rotation_ > 0.0) ? 1.0 : -1.0;
+                begin_escape_turn("post-backup");
             }
         }
 
         // Priority 1b: finish any in-progress 15 or 90 deg turn
         else if (turning_) {
             // Check how much the robot has rotated
-            double angle_rotated = normalizeAngle(yaw_ - start_yaw_);
+            double angle_rotated = NormAngle(yaw_ - start_yaw_);
 
             // Compare amount rotated to target rotation, if less, keep rotating
             if (std::abs(angle_rotated) < std::abs(target_rotation_)) {
@@ -320,6 +708,7 @@ private:
             // Record starting position
             start_pos_x_ = pos_x_;
             start_pos_y_ = pos_y_;
+            backup_start_time_ = this->now();
 
             // Set target moving distance
             target_move_ = -0.15;
@@ -331,17 +720,18 @@ private:
             angular_ = 0.0;
         }
 
-        // Priority 3: if obstacle to the left or right, start a 15 deg turn away from obstacle
-        else if (!any_bumper_pressed && (min_left_dist_ < 0.25 || min_right_dist_ < 0.25) && !noTurn_) {
+        // Priority 3: if obstacle to the left or right, start a single 15 deg turn away from obstacle
+        else if (!any_bumper_pressed && avoid_turn_cooldown_ == 0 &&
+                 (min_left_dist_ < 0.3 || min_right_dist_ < 0.3)) {
             // Capture starting yaw (heading)
             start_yaw_ = yaw_;
 
-            // If obstacle to the left within 0.4m, turn right 15deg
-            if (min_left_dist_ < 0.25) {
+            // If obstacle to the left within 0.3m, turn right 15deg
+            if (min_left_dist_ < 0.3) {
                 target_rotation_ = deg2rad(-15.0); // right turn
             } 
             
-            // If obstacle to the right within 0.4m, turn left 15deg
+            // If obstacle to the right within 0.3m, turn left 15deg
             else {
                 target_rotation_ = deg2rad(15.0);  // left turn
             }
@@ -350,49 +740,50 @@ private:
             turning_ = true;
             linear_ = 0.0;
             angular_ = (target_rotation_ > 0.0) ? 1.0 : -1.0;
-            noTurn_ = true; // to stop multiple 15 degree turns
+            // prevent repeated 15 deg turns for a short window
+            avoid_turn_cooldown_ = 20; // ~2s at 10Hz
         }
 
         // Priority 4: if obstacle in front, decide which way to go based on lidar data (skewed to right)
-        else if (!any_bumper_pressed && min_front_dist_ < 0.4) {
+        else if (!any_bumper_pressed && front_blocked_) {
             // Capture starting yaw (heading)
             start_yaw_ = yaw_;
 
-            // If avg distance to the right >= the left, turn 90deg to the right
-            if (avg_right_dist_ >= avg_left_dist_) {
-                target_rotation_ = deg2rad(-90.0); // right turn
-            } 
-            
-            // If avg distance to the left > the right, turn 90deg to the left
-            else {
-                target_rotation_ = deg2rad(90.0); // left turn
+            // Update turn cycle before choosing
+            turn_count_++;
+            constexpr int kWideEvery = 4;
+            far_sequence_ = (turn_count_ % kWideEvery == 1);
+            log_turn_choice_state("front-obstacle");
+            float chosen_angle = 0.0f;
+            const char* mode_label = "unknown";
+            const double kMinEscapeTurn = deg2rad(25.0);
+            const double kFallbackTurn = deg2rad(45.0);
+            if (!choose_turn_angle(chosen_angle, mode_label)) {
+                RCLCPP_WARN(this->get_logger(), "No valid scan to choose turn angle, using fallback");
+                mode_label = "fallback-clear-side";
+                target_rotation_ = (min_left_dist_ > min_right_dist_) ? kFallbackTurn : -kFallbackTurn;
+            } else {
+                target_rotation_ = chosen_angle;
             }
+            if (std::abs(target_rotation_) < kMinEscapeTurn) {
+                target_rotation_ = (target_rotation_ >= 0.0) ? kMinEscapeTurn : -kMinEscapeTurn;
+                mode_label = "clamped-turn";
+            }
+            RCLCPP_INFO(this->get_logger(), "Choosing most %s space for rotation", mode_label);
 
-            //Adding random walk feature every 5 rotations --- adds a random degree of rotation between 10 and 30 degrees to target_rotation 
-            random_rotate_counter_=random_rotate_counter_+1;
-            if (random_rotate_counter_ == 3){
-                int random_change_=rotation_dist_(gen_);
-                if (sign_change_(gen_)==0)
-                {
-                    random_change_=random_change_*(-1); // made negative randomly
-                }
-                target_rotation_= target_rotation_ + deg2rad(random_change_);
-                RCLCPP_INFO(this->get_logger(), "Random Rotation!");
-                random_rotate_counter_=1;
-            }
             // Start turning sequence
             turning_ = true;
             linear_ = 0.0;
             angular_ = (target_rotation_ > 0.0) ? 1.0 : -1.0;
+
+            // turn_count_ already updated before choosing
         }
 
         // Priority 5: move forward if clear (slow down when near walls)
-        else if (!any_bumper_pressed && min_front_dist_ >= 0.4) {
+        else if (!any_bumper_pressed && !front_blocked_) {
             angular_ = 0.0;
-            noTurn_ = false; //to allow for 15 deg turn again
-            if (min_front_dist_ <= 0.5 || min_left_dist_ <= 0.5 || min_right_dist_ <= 0.5) {
+            if (min_front_dist_ <= 0.4 || min_left_dist_ <= 0.4 || min_right_dist_ <= 0.4) {
                 linear_ = 0.1;
-                RCLCPP_INFO(this->get_logger(), "\nSlow down activated\n");
             } else {
                 linear_ = 0.25;
             }
@@ -415,6 +806,10 @@ private:
 
         // Publish velocity command
         vel_pub_->publish(vel);
+
+        if (avoid_turn_cooldown_ > 0) {
+            avoid_turn_cooldown_--;
+        }
     }
 
     rclcpp::Publisher<geometry_msgs::msg::TwistStamped>::SharedPtr vel_pub_;
@@ -430,13 +825,23 @@ private:
     double pos_y_;
     double yaw_;
     std::map<std::string, bool>bumpers_;
+    std::string last_bump_id_;
+    bool last_bump_valid_;
     uint32_t nLasers_;
     float min_front_dist_;
     float min_left_dist_;
     float min_right_dist_;
-    float avg_front_dist_;
-    float avg_left_dist_;
-    float avg_right_dist_;
+    bool front_blocked_;
+    std::vector<float> laserRange_; 
+    std::vector<float> wideSpace_;
+    std::vector<float> narrowSpace_;
+
+    float bestAngle_far_;
+    float bestClearance_far_;
+    bool haveScan_far_;
+    float bestAngle_close_;
+    float bestClearance_close_;
+    bool haveScan_close_;
     double start_yaw_;
     double start_pos_x_;
     double start_pos_y_;
@@ -444,11 +849,11 @@ private:
     double target_move_;
     bool turning_;
     bool moving_;
-    bool noTurn_; //To prevent multiple 15 degree turns
-    int random_rotate_counter_;
-    std::mt19937 gen_;
-    std::uniform_int_distribution<int> rotation_dist_; //These are random number generators to flip between negative and positive
-    std::uniform_int_distribution<int> sign_change_;
+    rclcpp::Time backup_start_time_;
+    bool far_sequence_;
+    int midpoint_;
+    int turn_count_;
+    int avoid_turn_cooldown_;
 };
 
 int main(int argc, char** argv)
