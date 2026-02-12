@@ -4,6 +4,7 @@
 #include <map>
 #include <vector>
 #include <algorithm>
+#include <string>
 
 #include "rclcpp/rclcpp.hpp"
 #include "geometry_msgs/msg/twist_stamped.hpp"
@@ -54,54 +55,87 @@ void classifyRanges (const std::vector<float>& input_ranges, std::vector<float>&
 }
 
 
-//function to return the midpoint index of the longest sequence of far ranges
-//edge cases to address: multiple long sequences of the same length
-int midSequenceFar (const std::vector<float>& sequence, int size){
-    
-    int current = 0;
-    int longest = 0;
-    int last_index = 0;
-
-    //loop to find the longest sequence of far ranges (range = 1.0)
-    for(int i=0; i<size; i++){
-        if(sequence[i] > 0.5 ){
-            current ++;
-            if(current > longest){
-                last_index = i;
-                longest = current;
-            }
-            else{
-                continue;
-            }
-        }
-        else{
-            current = 0;
-        }
-    }
-    //return -1 incase no sequence of far ranges found, otherwise return left mid point
-    if(!longest){
+// Choose the best index inside a run using the largest finite range (avoid edges if possible)
+int bestIndexInRun(const std::vector<float>& ranges, int start, int len) {
+    if (len <= 0 || start < 0 || start + len > static_cast<int>(ranges.size())) {
         return -1;
     }
-    else {
-        double mid = static_cast<double>(last_index) - (static_cast<double>(longest) - 1.0) / 2.0;
-        int mid_index = static_cast<int>(std::lround(mid));
-        return mid_index;
+    int margin = std::max(0, len / 6);
+    int s = start + margin;
+    int e = start + len - 1 - margin;
+    if (s > e) {
+        s = start;
+        e = start + len - 1;
     }
+    int best = -1;
+    float best_r = -1.0f;
+    for (int i = s; i <= e; ++i) {
+        float r = ranges[i];
+        if (!std::isfinite(r)) {
+            continue;
+        }
+        if (r > best_r) {
+            best_r = r;
+            best = i;
+        }
+    }
+    if (best >= 0) {
+        return best;
+    }
+    return start + (len - 1) / 2;
+}
+
+//function to return the best index of the longest sequence of far ranges
+//edge cases to address: multiple long sequences of the same length
+int midSequenceFar(const std::vector<float>& sequence,
+                   const std::vector<float>& ranges,
+                   int size) {
+    int run_start = -1;
+    int run_len = 0;
+    int best_start = -1;
+    int best_len = 0;
+
+    //loop to find the longest sequence of far ranges (range = 1.0)
+    for (int i = 0; i < size; i++) {
+        if (sequence[i] > 0.5) {
+            if (run_len == 0) {
+                run_start = i;
+            }
+            run_len++;
+            if (run_len > best_len) {
+                best_len = run_len;
+                best_start = run_start;
+            }
+        } else {
+            run_len = 0;
+        }
+    }
+    //return -1 incase no sequence of far ranges found
+    if (best_len == 0) {
+        return -1;
+    }
+    return bestIndexInRun(ranges, best_start, best_len);
 }
 
 
 //return the center of the narrowest space of far range 
 //Need to check that it is wide enough for the body of the turtlebot
 //Turtlebot Body is 0.4 m wide 
-int midSequenceClose (const std::vector<float>& sequence, int size, const float threshold, const float angle_increment){
-    //minimum theta value for arc length > bot width 
-
-    float angle_range = 0.5/threshold;
-    int index_width = angle_range / angle_increment; 
+int midSequenceClose(const std::vector<float>& sequence,
+                     const std::vector<float>& ranges,
+                     int size,
+                     const float threshold,
+                     const float angle_increment) {
+    // Minimum theta value for arc length > bot width (with margin)
+    const float kRobotWidth = 0.45f;
+    const float safe_threshold = std::max(threshold, 0.05f);
+    const float width_range = std::max(safe_threshold, 0.8f);
+    const float angle_range = kRobotWidth / width_range;
+    const int index_width = std::max(1, static_cast<int>(std::ceil(angle_range / angle_increment)));
     int run_start = -1;
     int run_len = 0;
     int shortest = std::numeric_limits<int>::max();
-    int best_mid = -1;
+    int best_start = -1;
 
     //loop to find the shortest sequence of far ranges (range = 1.0)
     for(int i=0; i<size; i++){
@@ -113,7 +147,7 @@ int midSequenceClose (const std::vector<float>& sequence, int size, const float 
         } else {
             if (run_len >= index_width && run_len < shortest) {
                 shortest = run_len;
-                best_mid = run_start + (run_len - 1) / 2;
+                best_start = run_start;
             }
             run_len = 0;
         }
@@ -121,9 +155,12 @@ int midSequenceClose (const std::vector<float>& sequence, int size, const float 
     // handle run that reaches the end
     if (run_len >= index_width && run_len < shortest) {
         shortest = run_len;
-        best_mid = run_start + (run_len - 1) / 2;
+        best_start = run_start;
     }
-    return best_mid;
+    if (best_start < 0) {
+        return -1;
+    }
+    return bestIndexInRun(ranges, best_start, shortest);
 }
 
 
@@ -273,6 +310,8 @@ public:
         bumpers_["bump_front_right"]=false;
         bumpers_["bump_left"]=false;
         bumpers_["bump_right"]=false;
+        last_bump_id_.clear();
+        last_bump_valid_ = false;
         
         // Log start message
         RCLCPP_INFO(this->get_logger(), "Contest 1 node initialized. Running for 480 seconds.");
@@ -370,23 +409,22 @@ private:
         // 2. NAVIGATION LASER CALLBACK SECTION:
         laserRange_ = scan->ranges;
 
-        //Threshold for most wide space based on maximum laser distance
-        float threshold_wide = 0.7f * maxRange(laserRange_); //Play around
-        if (!std::isfinite(threshold_wide) || threshold_wide <= 0.0f) {
-            threshold_wide = scan->range_max;
+        // Thresholds for open space classification (capped to avoid extreme values)
+        float max_range = maxRange(laserRange_);
+        if (!std::isfinite(max_range) || max_range <= 0.0f) {
+            max_range = scan->range_max;
         }
-        if (!std::isfinite(threshold_wide) || threshold_wide <= 0.0f) {
-            threshold_wide = 1.0f;
+        if (!std::isfinite(max_range) || max_range <= 0.0f) {
+            max_range = 1.0f;
         }
-        
-        //Threshold for most narrow space based on maximum laser distance
-        float threshold_narrow = 0.5f * maxRange(laserRange_); //Play around
-        if (!std::isfinite(threshold_narrow) || threshold_narrow <= 0.0f) {
-            threshold_narrow = scan->range_max;
-        }
-        if (!std::isfinite(threshold_narrow) || threshold_narrow <= 0.0f) {
-            threshold_narrow = 1.0f;
-        }
+        constexpr float kMinOpenClearance = 0.45f;
+        constexpr float kMaxWideThreshold = 3.0f;
+        constexpr float kMaxNarrowThreshold = 2.0f;
+
+        float threshold_wide = std::min(kMaxWideThreshold, 0.7f * max_range);
+        float threshold_narrow = std::min(kMaxNarrowThreshold, 0.7f * max_range);
+        threshold_wide = std::max(threshold_wide, kMinOpenClearance);
+        threshold_narrow = std::max(threshold_narrow, kMinOpenClearance);
 
              
         wideSpace_.resize(laserRange_.size());
@@ -397,8 +435,8 @@ private:
         classifyRanges(laserRange_, narrowSpace_, laserRange_.size(), threshold_narrow);
 
         
-        int midpoint_far = midSequenceFar(wideSpace_, laserRange_.size());
-        int midpoint_close = midSequenceClose(narrowSpace_, laserRange_.size(), threshold_narrow, scan->angle_increment);
+        int midpoint_far = midSequenceFar(wideSpace_, laserRange_, laserRange_.size());
+        int midpoint_close = midSequenceClose(narrowSpace_, laserRange_, laserRange_.size(), threshold_narrow, scan->angle_increment);
 
         computeBestFromMidpoint(midpoint_far, scan, bestAngle_far_, bestClearance_far_, haveScan_far_);
         computeBestFromMidpoint(midpoint_close, scan, bestAngle_close_, bestClearance_close_, haveScan_close_);
@@ -440,6 +478,8 @@ private:
         for (const auto& detection : hazard_vector->detections) {
             if (detection.type == irobot_create_msgs::msg::HazardDetection::BUMP) {
                 bumpers_[detection.header.frame_id] = true;
+                last_bump_id_ = detection.header.frame_id;
+                last_bump_valid_ = true;
                 RCLCPP_INFO(this->get_logger(), "Bumper pressed %s", detection.header.frame_id.c_str());
             }
         }
@@ -479,25 +519,30 @@ private:
             }
         }
 
+        const float max_turn = deg2rad(120.0f);
+
         auto choose_turn_angle = [&](float &angle_out, const char* &mode_label) -> bool {
+            auto within_turn_limit = [&](float angle) {
+                return std::abs(angle) <= max_turn;
+            };
             if (far_sequence_) {
-                if (haveScan_far_) {
+                if (haveScan_far_ && within_turn_limit(bestAngle_far_)) {
                     angle_out = bestAngle_far_;
                     mode_label = "wide";
                     return true;
                 }
-                if (haveScan_close_) {
+                if (haveScan_close_ && within_turn_limit(bestAngle_close_)) {
                     angle_out = bestAngle_close_;
                     mode_label = "narrow (fallback)";
                     return true;
                 }
             } else {
-                if (haveScan_close_) {
+                if (haveScan_close_ && within_turn_limit(bestAngle_close_)) {
                     angle_out = bestAngle_close_;
                     mode_label = "narrow";
                     return true;
                 }
-                if (haveScan_far_) {
+                if (haveScan_far_ && within_turn_limit(bestAngle_far_)) {
                     angle_out = bestAngle_far_;
                     mode_label = "wide (fallback)";
                     return true;
@@ -552,16 +597,46 @@ private:
 
                 // Update turn cycle before choosing
                 turn_count_++;
-                far_sequence_ = (turn_count_ % 5 == 1);
+                constexpr int kWideEvery = 4;
+                far_sequence_ = (turn_count_ % kWideEvery == 1);
                 log_turn_choice_state("post-backup");
+                const double kEscapeTurn = deg2rad(60.0);
+                const double kMinEscapeTurn = deg2rad(25.0);
+                const double kFallbackTurn = deg2rad(45.0);
                 float chosen_angle = 0.0f;
                 const char* mode_label = "unknown";
-                if (!choose_turn_angle(chosen_angle, mode_label)) {
-                    RCLCPP_WARN(this->get_logger(), "No valid scan to choose turn angle");
-                    return;
+                bool using_escape_turn = false;
+                if (last_bump_valid_) {
+                    if (last_bump_id_.find("left") != std::string::npos) {
+                        target_rotation_ = -kEscapeTurn; // turn right away from left bump
+                        mode_label = "bumper-escape-right";
+                        using_escape_turn = true;
+                    } else if (last_bump_id_.find("right") != std::string::npos) {
+                        target_rotation_ = kEscapeTurn; // turn left away from right bump
+                        mode_label = "bumper-escape-left";
+                        using_escape_turn = true;
+                    } else {
+                        // center/front bump: pick the clearer side
+                        target_rotation_ = (min_left_dist_ > min_right_dist_) ? kEscapeTurn : -kEscapeTurn;
+                        mode_label = "bumper-escape-center";
+                        using_escape_turn = true;
+                    }
+                    last_bump_valid_ = false;
+                }
+                if (!using_escape_turn) {
+                    if (!choose_turn_angle(chosen_angle, mode_label)) {
+                        RCLCPP_WARN(this->get_logger(), "No valid scan to choose turn angle, using fallback");
+                        mode_label = "fallback-clear-side";
+                        target_rotation_ = (min_left_dist_ > min_right_dist_) ? kFallbackTurn : -kFallbackTurn;
+                    } else {
+                        target_rotation_ = chosen_angle;
+                    }
+                    if (std::abs(target_rotation_) < kMinEscapeTurn) {
+                        target_rotation_ = (target_rotation_ >= 0.0) ? kMinEscapeTurn : -kMinEscapeTurn;
+                        mode_label = "clamped-turn";
+                    }
                 }
                 RCLCPP_INFO(this->get_logger(), "Choosing most %s space for rotation", mode_label);
-                target_rotation_ = chosen_angle;
 
                 // Start turning sequence
                 turning_ = true;
@@ -609,16 +684,16 @@ private:
         }
 
         // Priority 3: if obstacle to the left or right, start a 15 deg turn away from obstacle
-        else if (!any_bumper_pressed && (min_left_dist_ < 0.25 || min_right_dist_ < 0.25)) {
+        else if (!any_bumper_pressed && (min_left_dist_ < 0.3 || min_right_dist_ < 0.3)) {
             // Capture starting yaw (heading)
             start_yaw_ = yaw_;
 
-            // If obstacle to the left within 0.4m, turn right 15deg
-            if (min_left_dist_ < 0.25) {
+            // If obstacle to the left within 0.3m, turn right 15deg
+            if (min_left_dist_ < 0.3) {
                 target_rotation_ = deg2rad(-15.0); // right turn
             } 
             
-            // If obstacle to the right within 0.4m, turn left 15deg
+            // If obstacle to the right within 0.3m, turn left 15deg
             else {
                 target_rotation_ = deg2rad(15.0);  // left turn
             }
@@ -636,16 +711,25 @@ private:
 
             // Update turn cycle before choosing
             turn_count_++;
-            far_sequence_ = (turn_count_ % 5 == 1);
+            constexpr int kWideEvery = 4;
+            far_sequence_ = (turn_count_ % kWideEvery == 1);
             log_turn_choice_state("front-obstacle");
             float chosen_angle = 0.0f;
             const char* mode_label = "unknown";
+            const double kMinEscapeTurn = deg2rad(25.0);
+            const double kFallbackTurn = deg2rad(45.0);
             if (!choose_turn_angle(chosen_angle, mode_label)) {
-                RCLCPP_WARN(this->get_logger(), "No valid scan to choose turn angle");
-                return;
+                RCLCPP_WARN(this->get_logger(), "No valid scan to choose turn angle, using fallback");
+                mode_label = "fallback-clear-side";
+                target_rotation_ = (min_left_dist_ > min_right_dist_) ? kFallbackTurn : -kFallbackTurn;
+            } else {
+                target_rotation_ = chosen_angle;
+            }
+            if (std::abs(target_rotation_) < kMinEscapeTurn) {
+                target_rotation_ = (target_rotation_ >= 0.0) ? kMinEscapeTurn : -kMinEscapeTurn;
+                mode_label = "clamped-turn";
             }
             RCLCPP_INFO(this->get_logger(), "Choosing most %s space for rotation", mode_label);
-            target_rotation_ = chosen_angle;
 
             // Start turning sequence
             turning_ = true;
@@ -658,7 +742,7 @@ private:
         // Priority 5: move forward if clear (slow down when near walls)
         else if (!any_bumper_pressed && min_front_dist_ >= 0.4) {
             angular_ = 0.0;
-            if (min_front_dist_ <= 0.5 || min_left_dist_ <= 0.5 || min_right_dist_ <= 0.5) {
+            if (min_front_dist_ <= 0.4 || min_left_dist_ <= 0.4 || min_right_dist_ <= 0.4) {
                 linear_ = 0.1;
             } else {
                 linear_ = 0.25;
@@ -697,6 +781,8 @@ private:
     double pos_y_;
     double yaw_;
     std::map<std::string, bool>bumpers_;
+    std::string last_bump_id_;
+    bool last_bump_valid_;
     uint32_t nLasers_;
     float min_front_dist_;
     float min_left_dist_;
