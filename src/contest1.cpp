@@ -43,7 +43,7 @@ void classifyRanges (const std::vector<float>& input_ranges, std::vector<float>&
         output_flags[i] = 0.00; //treat NaN as close/unknown
        }
        else if(std::isinf(r)){
-        output_flags[i] = 1.00; //treat inf as open space
+        output_flags[i] = 0.00; //treat inf as open space
        }
        else if(r > threshold){
         output_flags[i] = 1.00; //far
@@ -284,6 +284,7 @@ public:
         target_move_ = 0.0;
         turning_ = false;
         moving_ = false;
+        backup_start_time_ = this->now();
 
         // Initialize LiDAR variables for navigation
         nLasers_ = 0;
@@ -303,6 +304,7 @@ public:
         far_sequence_ = true;
         midpoint_ = -1;
         turn_count_ = 0;
+        avoid_turn_cooldown_ = 0;
 
         // Initialize bumper states
         bumpers_["bump_front_left"]=false;
@@ -421,8 +423,8 @@ private:
         constexpr float kMaxWideThreshold = 3.0f;
         constexpr float kMaxNarrowThreshold = 2.0f;
 
-        float threshold_wide = std::min(kMaxWideThreshold, 0.7f * max_range);
-        float threshold_narrow = std::min(kMaxNarrowThreshold, 0.7f * max_range);
+        float threshold_wide = std::min(kMaxWideThreshold, 0.9f * max_range);
+        float threshold_narrow = std::min(kMaxNarrowThreshold, 0.5f * max_range);
         threshold_wide = std::max(threshold_wide, kMinOpenClearance);
         threshold_narrow = std::max(threshold_narrow, kMinOpenClearance);
 
@@ -566,6 +568,62 @@ private:
                         bestClearance_close_);
         };
 
+        auto begin_escape_turn = [&](const char* reason_label) {
+            RCLCPP_INFO(this->get_logger(), "Begin escape turn (%s)", reason_label);
+            moving_ = false;
+
+            // Capture starting yaw to compare against current yaw
+            start_yaw_ = yaw_;
+
+            // Update turn cycle before choosing
+            turn_count_++;
+            constexpr int kWideEvery = 4;
+            far_sequence_ = (turn_count_ % kWideEvery == 1);
+            log_turn_choice_state(reason_label);
+            const double kEscapeTurn = deg2rad(60.0);
+            const double kMinEscapeTurn = deg2rad(25.0);
+            const double kFallbackTurn = deg2rad(45.0);
+            float chosen_angle = 0.0f;
+            const char* mode_label = "unknown";
+            bool using_escape_turn = false;
+            if (last_bump_valid_) {
+                if (last_bump_id_.find("left") != std::string::npos) {
+                    target_rotation_ = -kEscapeTurn; // turn right away from left bump
+                    mode_label = "bumper-escape-right";
+                    using_escape_turn = true;
+                } else if (last_bump_id_.find("right") != std::string::npos) {
+                    target_rotation_ = kEscapeTurn; // turn left away from right bump
+                    mode_label = "bumper-escape-left";
+                    using_escape_turn = true;
+                } else {
+                    // center/front bump: pick the clearer side
+                    target_rotation_ = (min_left_dist_ > min_right_dist_) ? kEscapeTurn : -kEscapeTurn;
+                    mode_label = "bumper-escape-center";
+                    using_escape_turn = true;
+                }
+                last_bump_valid_ = false;
+            }
+            if (!using_escape_turn) {
+                if (!choose_turn_angle(chosen_angle, mode_label)) {
+                    RCLCPP_WARN(this->get_logger(), "No valid scan to choose turn angle, using fallback");
+                    mode_label = "fallback-clear-side";
+                    target_rotation_ = (min_left_dist_ > min_right_dist_) ? kFallbackTurn : -kFallbackTurn;
+                } else {
+                    target_rotation_ = chosen_angle;
+                }
+                if (std::abs(target_rotation_) < kMinEscapeTurn) {
+                    target_rotation_ = (target_rotation_ >= 0.0) ? kMinEscapeTurn : -kMinEscapeTurn;
+                    mode_label = "clamped-turn";
+                }
+            }
+            RCLCPP_INFO(this->get_logger(), "Choosing most %s space for rotation", mode_label);
+
+            // Start turning sequence
+            turning_ = true;
+            linear_ = 0.0;
+            angular_ = (target_rotation_ > 0.0) ? 1.0 : -1.0;
+        };
+
         // Log position, orientation, and min laser distances
         RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 2000, "Position: (%.2f, %.2f), Orientation: %f rad or %f deg, Minimum laser distance in front, left, and right: (%.2f, %.2f, %.2f)", pos_x_, pos_y_, yaw_, rad2deg(yaw_), min_front_dist_, min_left_dist_, min_right_dist_);
         
@@ -579,8 +637,13 @@ private:
 
             // Obtain target distance to move
             double target_distance = std::abs(target_move_);
+            constexpr double kBackupTimeout = 5.0;
+            double backup_elapsed = (this->now() - backup_start_time_).seconds();
 
-            if (distance_moved < target_distance) {
+            if (backup_elapsed > kBackupTimeout) {
+                RCLCPP_WARN(this->get_logger(), "Backup timeout (%.2fs). Stopping backup and turning.", backup_elapsed);
+                begin_escape_turn("backup-timeout");
+            } else if (distance_moved < target_distance) {
                 // Continue moving until robot hits target distance
                 linear_ = (target_move_ > 0.0) ? 0.1 : -0.1; //CHANGED TO 0.1 BECAUSE IF YOU BUMPED YOU ARE CLOSE TO WALL
                 angular_ = 0.0;
@@ -588,62 +651,9 @@ private:
                             distance_moved,
                             target_distance);
             } else {
-                // Reached target distance, rotate 90deg and then keep moving
+                // Reached target distance, start escape turn
                 RCLCPP_INFO(this->get_logger(), "Reached 0.15m backup, start turning");
-                moving_ = false;
-
-                // Capture starting yaw to compare against current yaw
-                start_yaw_ = yaw_;
-
-                // Update turn cycle before choosing
-                turn_count_++;
-                constexpr int kWideEvery = 4;
-                far_sequence_ = (turn_count_ % kWideEvery == 1);
-                log_turn_choice_state("post-backup");
-                const double kEscapeTurn = deg2rad(60.0);
-                const double kMinEscapeTurn = deg2rad(25.0);
-                const double kFallbackTurn = deg2rad(45.0);
-                float chosen_angle = 0.0f;
-                const char* mode_label = "unknown";
-                bool using_escape_turn = false;
-                if (last_bump_valid_) {
-                    if (last_bump_id_.find("left") != std::string::npos) {
-                        target_rotation_ = -kEscapeTurn; // turn right away from left bump
-                        mode_label = "bumper-escape-right";
-                        using_escape_turn = true;
-                    } else if (last_bump_id_.find("right") != std::string::npos) {
-                        target_rotation_ = kEscapeTurn; // turn left away from right bump
-                        mode_label = "bumper-escape-left";
-                        using_escape_turn = true;
-                    } else {
-                        // center/front bump: pick the clearer side
-                        target_rotation_ = (min_left_dist_ > min_right_dist_) ? kEscapeTurn : -kEscapeTurn;
-                        mode_label = "bumper-escape-center";
-                        using_escape_turn = true;
-                    }
-                    last_bump_valid_ = false;
-                }
-                if (!using_escape_turn) {
-                    if (!choose_turn_angle(chosen_angle, mode_label)) {
-                        RCLCPP_WARN(this->get_logger(), "No valid scan to choose turn angle, using fallback");
-                        mode_label = "fallback-clear-side";
-                        target_rotation_ = (min_left_dist_ > min_right_dist_) ? kFallbackTurn : -kFallbackTurn;
-                    } else {
-                        target_rotation_ = chosen_angle;
-                    }
-                    if (std::abs(target_rotation_) < kMinEscapeTurn) {
-                        target_rotation_ = (target_rotation_ >= 0.0) ? kMinEscapeTurn : -kMinEscapeTurn;
-                        mode_label = "clamped-turn";
-                    }
-                }
-                RCLCPP_INFO(this->get_logger(), "Choosing most %s space for rotation", mode_label);
-
-                // Start turning sequence
-                turning_ = true;
-                linear_ = 0.0;
-                angular_ = (target_rotation_ > 0.0) ? 1.0 : -1.0;
-
-                // turn_count_ already updated before choosing
+                begin_escape_turn("post-backup");
             }
         }
 
@@ -672,6 +682,7 @@ private:
             // Record starting position
             start_pos_x_ = pos_x_;
             start_pos_y_ = pos_y_;
+            backup_start_time_ = this->now();
 
             // Set target moving distance
             target_move_ = -0.15;
@@ -683,8 +694,9 @@ private:
             angular_ = 0.0;
         }
 
-        // Priority 3: if obstacle to the left or right, start a 15 deg turn away from obstacle
-        else if (!any_bumper_pressed && (min_left_dist_ < 0.3 || min_right_dist_ < 0.3)) {
+        // Priority 3: if obstacle to the left or right, start a single 15 deg turn away from obstacle
+        else if (!any_bumper_pressed && avoid_turn_cooldown_ == 0 &&
+                 (min_left_dist_ < 0.3 || min_right_dist_ < 0.3)) {
             // Capture starting yaw (heading)
             start_yaw_ = yaw_;
 
@@ -702,6 +714,8 @@ private:
             turning_ = true;
             linear_ = 0.0;
             angular_ = (target_rotation_ > 0.0) ? 1.0 : -1.0;
+            // prevent repeated 15 deg turns for a short window
+            avoid_turn_cooldown_ = 20; // ~2s at 10Hz
         }
 
         // Priority 4: if obstacle in front, decide which way to go based on lidar data (skewed to right)
@@ -766,6 +780,10 @@ private:
 
         // Publish velocity command
         vel_pub_->publish(vel);
+
+        if (avoid_turn_cooldown_ > 0) {
+            avoid_turn_cooldown_--;
+        }
     }
 
     rclcpp::Publisher<geometry_msgs::msg::TwistStamped>::SharedPtr vel_pub_;
@@ -807,6 +825,7 @@ private:
     bool far_sequence_;
     int midpoint_;
     int turn_count_;
+    int avoid_turn_cooldown_;
 };
 
 int main(int argc, char** argv)
