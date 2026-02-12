@@ -1,0 +1,14 @@
+[01m[K/home/nicolas-rebollo/ros2_ws/src/mie443_contest1/src/contest1.cpp:[m[K In constructor ‘[01m[KContest1Node::[01;32m[KContest1Node[m[K()[m[K’:
+[01m[K/home/nicolas-rebollo/ros2_ws/src/mie443_contest1/src/contest1.cpp:287:9:[m[K [01;31m[Kerror: [m[K‘[01m[Kbackup_start_time_[m[K’ was not declared in this scope
+  287 |         [01;31m[Kbackup_start_time_[m[K = this->now();
+      |         [01;31m[K^~~~~~~~~~~~~~~~~~[m[K
+[01m[K/home/nicolas-rebollo/ros2_ws/src/mie443_contest1/src/contest1.cpp:[m[K In member function ‘[01m[Kvoid Contest1Node::[01;32m[KcontrolLoop[m[K()[m[K’:
+[01m[K/home/nicolas-rebollo/ros2_ws/src/mie443_contest1/src/contest1.cpp:641:52:[m[K [01;31m[Kerror: [m[K‘[01m[Kbackup_start_time_[m[K’ was not declared in this scope
+  641 |             double backup_elapsed = (this->now() - [01;31m[Kbackup_start_time_[m[K).seconds();
+      |                                                    [01;31m[K^~~~~~~~~~~~~~~~~~[m[K
+[01m[K/home/nicolas-rebollo/ros2_ws/src/mie443_contest1/src/contest1.cpp:685:13:[m[K [01;31m[Kerror: [m[K‘[01m[Kbackup_start_time_[m[K’ was not declared in this scope
+  685 |             [01;31m[Kbackup_start_time_[m[K = this->now();
+      |             [01;31m[K^~~~~~~~~~~~~~~~~~[m[K
+gmake[2]: *** [CMakeFiles/contest1.dir/build.make:76: CMakeFiles/contest1.dir/src/contest1.cpp.o] Error 1
+gmake[1]: *** [CMakeFiles/Makefile2:137: CMakeFiles/contest1.dir/all] Error 2
+gmake: *** [Makefile:146: all] Error 2

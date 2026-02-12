@@ -1,0 +1,23 @@
+[ 50%] [32mBuilding CXX object CMakeFiles/contest1.dir/src/contest1.cpp.o[0m
+[100%] [32m[1mLinking CXX executable contest1[0m
+[100%] Built target contest1
+-- Install configuration: ""
+-- Installing: /home/nicolas-rebollo/ros2_ws/src/mie443_contest1/install/mie443_contest1/lib/mie443_contest1/contest1
+-- Set non-toolchain portion of runtime path of "/home/nicolas-rebollo/ros2_ws/src/mie443_contest1/install/mie443_contest1/lib/mie443_contest1/contest1" to ""
+-- Installing: /home/nicolas-rebollo/ros2_ws/src/mie443_contest1/install/mie443_contest1/include/mie443_contest1
+-- Installing: /home/nicolas-rebollo/ros2_ws/src/mie443_contest1/install/mie443_contest1/include/mie443_contest1/eStop.h
+-- Installing: /home/nicolas-rebollo/ros2_ws/src/mie443_contest1/install/mie443_contest1/share/ament_index/resource_index/package_run_dependencies/mie443_contest1
+-- Installing: /home/nicolas-rebollo/ros2_ws/src/mie443_contest1/install/mie443_contest1/share/ament_index/resource_index/parent_prefix_path/mie443_contest1
+-- Installing: /home/nicolas-rebollo/ros2_ws/src/mie443_contest1/install/mie443_contest1/share/mie443_contest1/environment/ament_prefix_path.sh
+-- Installing: /home/nicolas-rebollo/ros2_ws/src/mie443_contest1/install/mie443_contest1/share/mie443_contest1/environment/ament_prefix_path.dsv
+-- Installing: /home/nicolas-rebollo/ros2_ws/src/mie443_contest1/install/mie443_contest1/share/mie443_contest1/environment/path.sh
+-- Installing: /home/nicolas-rebollo/ros2_ws/src/mie443_contest1/install/mie443_contest1/share/mie443_contest1/environment/path.dsv
+-- Installing: /home/nicolas-rebollo/ros2_ws/src/mie443_contest1/install/mie443_contest1/share/mie443_contest1/local_setup.bash
+-- Installing: /home/nicolas-rebollo/ros2_ws/src/mie443_contest1/install/mie443_contest1/share/mie443_contest1/local_setup.sh
+-- Installing: /home/nicolas-rebollo/ros2_ws/src/mie443_contest1/install/mie443_contest1/share/mie443_contest1/local_setup.zsh
+-- Installing: /home/nicolas-rebollo/ros2_ws/src/mie443_contest1/install/mie443_contest1/share/mie443_contest1/local_setup.dsv
+-- Installing: /home/nicolas-rebollo/ros2_ws/src/mie443_contest1/install/mie443_contest1/share/mie443_contest1/package.dsv
+-- Installing: /home/nicolas-rebollo/ros2_ws/src/mie443_contest1/install/mie443_contest1/share/ament_index/resource_index/packages/mie443_contest1
+-- Installing: /home/nicolas-rebollo/ros2_ws/src/mie443_contest1/install/mie443_contest1/share/mie443_contest1/cmake/mie443_contest1Config.cmake
+-- Installing: /home/nicolas-rebollo/ros2_ws/src/mie443_contest1/install/mie443_contest1/share/mie443_contest1/cmake/mie443_contest1Config-version.cmake
+-- Installing: /home/nicolas-rebollo/ros2_ws/src/mie443_contest1/install/mie443_contest1/share/mie443_contest1/package.xml

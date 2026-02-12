@@ -1,0 +1,10 @@
+/home/nicolas-rebollo/ros2_ws/src/mie443_contest1/build/mie443_contest1/CMakeFiles/uninstall.dir
+/home/nicolas-rebollo/ros2_ws/src/mie443_contest1/build/mie443_contest1/CMakeFiles/mie443_contest1_uninstall.dir
+/home/nicolas-rebollo/ros2_ws/src/mie443_contest1/build/mie443_contest1/CMakeFiles/contest1.dir
+/home/nicolas-rebollo/ros2_ws/src/mie443_contest1/build/mie443_contest1/CMakeFiles/test.dir
+/home/nicolas-rebollo/ros2_ws/src/mie443_contest1/build/mie443_contest1/CMakeFiles/edit_cache.dir
+/home/nicolas-rebollo/ros2_ws/src/mie443_contest1/build/mie443_contest1/CMakeFiles/rebuild_cache.dir
+/home/nicolas-rebollo/ros2_ws/src/mie443_contest1/build/mie443_contest1/CMakeFiles/list_install_components.dir
+/home/nicolas-rebollo/ros2_ws/src/mie443_contest1/build/mie443_contest1/CMakeFiles/install.dir
+/home/nicolas-rebollo/ros2_ws/src/mie443_contest1/build/mie443_contest1/CMakeFiles/install/local.dir
+/home/nicolas-rebollo/ros2_ws/src/mie443_contest1/build/mie443_contest1/CMakeFiles/install/strip.dir

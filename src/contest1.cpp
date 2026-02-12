@@ -822,6 +822,7 @@ private:
     double target_move_;
     bool turning_;
     bool moving_;
+    rclcpp::Time backup_start_time_;
     bool far_sequence_;
     int midpoint_;
     int turn_count_;

@@ -1,0 +1,69 @@
+[0.012s] Invoking command in '/home/nicolas-rebollo/ros2_ws/src/mie443_contest1/build/mie443_contest1': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/jazzy DEBUGINFOD_URLS=https://debuginfod.ubuntu.com /usr/bin/cmake /home/nicolas-rebollo/ros2_ws/src/mie443_contest1 -DCMAKE_INSTALL_PREFIX=/home/nicolas-rebollo/ros2_ws/src/mie443_contest1/install/mie443_contest1
+[0.143s] -- The C compiler identification is GNU 13.3.0
+[0.201s] -- The CXX compiler identification is GNU 13.3.0
+[0.219s] -- Detecting C compiler ABI info
+[0.299s] -- Detecting C compiler ABI info - done
+[0.306s] -- Check for working C compiler: /usr/bin/cc - skipped
+[0.306s] -- Detecting C compile features
+[0.307s] -- Detecting C compile features - done
+[0.315s] -- Detecting CXX compiler ABI info
+[0.390s] -- Detecting CXX compiler ABI info - done
+[0.396s] -- Check for working CXX compiler: /usr/bin/c++ - skipped
+[0.396s] -- Detecting CXX compile features
+[0.396s] -- Detecting CXX compile features - done
+[0.401s] -- Found ament_cmake: 2.5.4 (/opt/ros/jazzy/share/ament_cmake/cmake)
+[0.514s] -- Found Python3: /usr/bin/python3 (found version "3.12.3") found components: Interpreter 
+[0.609s] -- Found rclcpp: 28.1.13 (/opt/ros/jazzy/share/rclcpp/cmake)
+[0.644s] -- Found rosidl_generator_c: 4.6.6 (/opt/ros/jazzy/share/rosidl_generator_c/cmake)
+[0.656s] -- Found rosidl_generator_cpp: 4.6.6 (/opt/ros/jazzy/share/rosidl_generator_cpp/cmake)
+[0.670s] -- Using all available rosidl_typesupport_c: rosidl_typesupport_fastrtps_c;rosidl_typesupport_introspection_c
+[0.685s] -- Using all available rosidl_typesupport_cpp: rosidl_typesupport_fastrtps_cpp;rosidl_typesupport_introspection_cpp
+[0.772s] -- Found rmw_implementation_cmake: 7.3.2 (/opt/ros/jazzy/share/rmw_implementation_cmake/cmake)
+[0.775s] -- Found rmw_cyclonedds_cpp: 2.2.3 (/opt/ros/jazzy/share/rmw_cyclonedds_cpp/cmake)
+[0.803s] -- Using RMW implementation 'rmw_cyclonedds_cpp' as default
+[0.859s] -- Found std_msgs: 5.3.6 (/opt/ros/jazzy/share/std_msgs/cmake)
+[0.872s] -- Found geometry_msgs: 5.3.6 (/opt/ros/jazzy/share/geometry_msgs/cmake)
+[0.886s] -- Found sensor_msgs: 5.3.6 (/opt/ros/jazzy/share/sensor_msgs/cmake)
+[0.912s] -- Found nav_msgs: 5.3.6 (/opt/ros/jazzy/share/nav_msgs/cmake)
+[0.942s] -- Found irobot_create_msgs: 3.0.0 (/opt/ros/jazzy/share/irobot_create_msgs/cmake)
+[1.002s] -- Found tf2: 0.36.16 (/opt/ros/jazzy/share/tf2/cmake)
+[1.007s] -- Found tf2_geometry_msgs: 0.36.16 (/opt/ros/jazzy/share/tf2_geometry_msgs/cmake)
+[1.021s] -- Found eigen3_cmake_module: 0.3.0 (/opt/ros/jazzy/share/eigen3_cmake_module/cmake)
+[1.022s] -- Found Eigen3: TRUE (found version "3.4.0") 
+[1.022s] -- Ensuring Eigen3 include directory is part of orocos-kdl CMake target
+[1.105s] -- Found cv_bridge: 4.1.0 (/opt/ros/jazzy/share/cv_bridge/cmake)
+[1.118s] -- Found image_transport: 5.1.7 (/opt/ros/jazzy/share/image_transport/cmake)
+[1.128s] -- Found TinyXML2 via Config file: /usr/lib/x86_64-linux-gnu/cmake/tinyxml2
+[1.132s] -- Found OpenCV: /usr (found suitable version "4.6.0", minimum required is "4") 
+[1.136s] -- Found ament_lint_auto: 0.17.3 (/opt/ros/jazzy/share/ament_lint_auto/cmake)
+[1.223s] -- Added test 'copyright' to check source files copyright and LICENSE
+[1.252s] -- Added test 'cppcheck' to perform static code analysis on C / C++ code
+[1.252s] -- Configured cppcheck include dirs: /home/nicolas-rebollo/ros2_ws/src/mie443_contest1/include
+[1.252s] -- Configured cppcheck exclude dirs and/or files: 
+[1.267s] -- Added test 'cpplint' to check C / C++ code against the Google style
+[1.267s] -- Configured cpplint exclude dirs and/or files: 
+[1.273s] -- Added test 'lint_cmake' to check CMake code style
+[1.289s] -- Added test 'uncrustify' to check C / C++ code style
+[1.289s] -- Configured uncrustify additional arguments: 
+[1.292s] -- Added test 'xmllint' to check XML markup files
+[1.293s] -- Configuring done (1.3s)
+[1.306s] -- Generating done (0.0s)
+[1.309s] -- Build files have been written to: /home/nicolas-rebollo/ros2_ws/src/mie443_contest1/build/mie443_contest1
+[1.316s] Invoked command in '/home/nicolas-rebollo/ros2_ws/src/mie443_contest1/build/mie443_contest1' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/jazzy DEBUGINFOD_URLS=https://debuginfod.ubuntu.com /usr/bin/cmake /home/nicolas-rebollo/ros2_ws/src/mie443_contest1 -DCMAKE_INSTALL_PREFIX=/home/nicolas-rebollo/ros2_ws/src/mie443_contest1/install/mie443_contest1
+[1.317s] Invoking command in '/home/nicolas-rebollo/ros2_ws/src/mie443_contest1/build/mie443_contest1': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/jazzy DEBUGINFOD_URLS=https://debuginfod.ubuntu.com /usr/bin/cmake --build /home/nicolas-rebollo/ros2_ws/src/mie443_contest1/build/mie443_contest1 -- -j12 -l12
+[1.361s] [ 50%] [32mBuilding CXX object CMakeFiles/contest1.dir/src/contest1.cpp.o[0m
+[2.727s] [01m[K/home/nicolas-rebollo/ros2_ws/src/mie443_contest1/src/contest1.cpp:[m[K In constructor ‘[01m[KContest1Node::[01;32m[KContest1Node[m[K()[m[K’:
+[2.727s] [01m[K/home/nicolas-rebollo/ros2_ws/src/mie443_contest1/src/contest1.cpp:287:9:[m[K [01;31m[Kerror: [m[K‘[01m[Kbackup_start_time_[m[K’ was not declared in this scope
+[2.727s]   287 |         [01;31m[Kbackup_start_time_[m[K = this->now();
+[2.727s]       |         [01;31m[K^~~~~~~~~~~~~~~~~~[m[K
+[2.744s] [01m[K/home/nicolas-rebollo/ros2_ws/src/mie443_contest1/src/contest1.cpp:[m[K In member function ‘[01m[Kvoid Contest1Node::[01;32m[KcontrolLoop[m[K()[m[K’:
+[2.744s] [01m[K/home/nicolas-rebollo/ros2_ws/src/mie443_contest1/src/contest1.cpp:641:52:[m[K [01;31m[Kerror: [m[K‘[01m[Kbackup_start_time_[m[K’ was not declared in this scope
+[2.744s]   641 |             double backup_elapsed = (this->now() - [01;31m[Kbackup_start_time_[m[K).seconds();
+[2.744s]       |                                                    [01;31m[K^~~~~~~~~~~~~~~~~~[m[K
+[2.751s] [01m[K/home/nicolas-rebollo/ros2_ws/src/mie443_contest1/src/contest1.cpp:685:13:[m[K [01;31m[Kerror: [m[K‘[01m[Kbackup_start_time_[m[K’ was not declared in this scope
+[2.751s]   685 |             [01;31m[Kbackup_start_time_[m[K = this->now();
+[2.751s]       |             [01;31m[K^~~~~~~~~~~~~~~~~~[m[K
+[4.792s] gmake[2]: *** [CMakeFiles/contest1.dir/build.make:76: CMakeFiles/contest1.dir/src/contest1.cpp.o] Error 1
+[4.793s] gmake[1]: *** [CMakeFiles/Makefile2:137: CMakeFiles/contest1.dir/all] Error 2
+[4.793s] gmake: *** [Makefile:146: all] Error 2
+[4.794s] Invoked command in '/home/nicolas-rebollo/ros2_ws/src/mie443_contest1/build/mie443_contest1' returned '2': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/jazzy DEBUGINFOD_URLS=https://debuginfod.ubuntu.com /usr/bin/cmake --build /home/nicolas-rebollo/ros2_ws/src/mie443_contest1/build/mie443_contest1 -- -j12 -l12
