@@ -4,15 +4,14 @@
 ![C++](https://img.shields.io/badge/Language-C%2B%2B17-00599C?logo=c%2B%2B)
 ![SLAM](https://img.shields.io/badge/Mapping-SLAM%20Toolbox-blue)
 ![Control](https://img.shields.io/badge/Control-10Hz%20Priority%20FSM-brightgreen)
-![License](https://img.shields.io/badge/License-MIT-lightgrey)
 
 > **MIE443 Mechatronics Systems: Design & Integration | University of Toronto**  
-> *Team Members: Nicolas Rebollo Canedo-Arguelles, Ahmed Fahmi, Lucas McMaster, Bido Mohamed*  
+> *Team Members: Nicolas Rebollo Canedo-Arguelles, Lucas McMaster, Ahmed Fahmi, Bido Mohamed*  
 > *Contest 1: "Where am I? Autonomous Robot Exploration of an Unknown Environment"*
 
 ---
 
-## 📌 Overview
+## Overview
 
 This project implements a fully autonomous exploration, obstacle avoidance, and real-time 2D Simultaneous Localization and Mapping (SLAM) algorithm for the **TurtleBot 4 Lite** in an unknown $4.87 \times 4.87\text{ m}^2$ maze.
 
@@ -20,7 +19,7 @@ Operating under an 8-minute (480 s) fixed-time constraint, the robot navigates w
 
 ---
 
-## 🕹️ Control Paradigm & Priority FSM
+##  Control Paradigm & Priority FSM
 
 The controller is implemented as a **6-Priority Hybrid Reactive / Behaviour-Based Finite State Machine (FSM)** running at 10 Hz inside `controlLoop()`:
 
@@ -42,7 +41,7 @@ v
 
 ---
 
-## ⚡ Algorithmic Highlights
+##  Algorithmic Highlights
 
 ### 1. Modified "Seek Open Spaces" with 4:1 Narrow-Corridor Bias
 Standard open-space exploration algorithms cause robots to repeatedly traverse wide central areas while ignoring narrow, occluded side corridors. Our algorithm introduces a 4:1 biased selection mechanism:
@@ -70,7 +69,7 @@ Applies an inner radius filter ($r \ge 0.15\text{ m}$) to prevent the robot from
 
 ---
 
-## 📂 Repository File Structure
+##  Repository File Structure
 
 ```text
 MIE443-Contest-1/
@@ -86,7 +85,7 @@ MIE443-Contest-1/
 
 ---
 
-## 🚀 Build & Run Instructions
+##  Build & Run Instructions
 
 ### Build
 ```bash
