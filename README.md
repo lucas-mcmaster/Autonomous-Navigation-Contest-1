@@ -62,7 +62,7 @@ Applies an inner radius filter ($r \ge 0.15\text{ m}$) to prevent the robot from
 
 ### 3. Closed-Loop On-Off Feedback Motion Primitives
 - **Angular Control**: Uses continuous odometry yaw feedback with angle normalization:
-  $$\text{NormAngle}(\text{yaw} - \text{start_yaw}) \in [-\pi, \pi] $$
+  $$\text{NormAngle}(\text{yaw} - \text{startYaw}) \in [-\pi, \pi] $$
 - **Linear Recovery**: Tracks Euclidean distance from bumper impact coordinates:
   $$\text{Distance} = \sqrt{(x - x_{\text{start}})^2 + (y - y_{\text{start}})^2}$$
   Halts after exactly $0.15\text{ m}$ of reverse travel before initiating directional escape turns.
